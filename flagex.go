@@ -22,6 +22,8 @@ var (
 	ErrExcl = ErrFlag.WrapFormat("'%s' is exclusive to '%s'")
 	// ErrRequired is returned when a required flag was not parsed.
 	ErrRequired = ErrFlag.WrapFormat("required key '%s' not specified")
+	// ErrReqVal
+	ErrReqVal = ErrFlag.WrapFormat("arg '%s' requires a param.")
 	// ErrSwitch is returned when a switch was passed a param.
 	ErrSwitch = ErrFlag.WrapFormat("switch '%s' takes no params")
 	// ErrParams is returned when Parse is called with empty params.
@@ -170,22 +172,43 @@ func (f *Flags) Exclusive(keys ...string) error {
 	return nil
 }
 
+// matchcombined
+func (f *Flags) matchcombined(arg string) bool {
+	if len(arg) > 0 {
+		if flag, ok := f.Short(string(arg[0])); ok {
+			if flag.sub != nil {
+				return flag.sub.matchcombined(arg[1:])
+			}
+			return true
+		}
+	}
+	return false
+}
+
 // findflag finds a flag by key or shortkey from arg and
 // returns it if found and truth if exists.
 func (f *Flags) findflag(arg string) (*Flag, bool) {
-	flag, ok := f.Short(strings.TrimPrefix(arg, "-"))
-	if !ok {
-		flag, ok = f.Key(strings.TrimPrefix(arg, "--"))
+	var flag *Flag
+	var ok bool
+	if strings.HasPrefix(arg, "-") {
+		key := strings.TrimPrefix(arg, "-")
+		if f.matchcombined(key) {
+			flag, ok = f.Short(string(key[0]))
+		} else {
+			flag, ok = f.Short(key)
+		}
+		if ok {
+			return flag, ok
+		}
+
+		if strings.HasPrefix(key, "-") {
+			flag, ok = f.Key(strings.TrimPrefix(key, "-"))
+		}
 	}
 	if !ok {
 		return nil, false
 	}
 	return flag, true
-}
-
-// isexcl checks if the flag is in exclusive list.
-func (f *Flags) isexcl(flag *Flag) bool {
-	return f.keys[flag.Key()].Excl()
 }
 
 // consume marks a flag as parsed and sets its value if not empty.
@@ -243,15 +266,22 @@ func (f *Flags) Parse(args []string) error {
 			if flag.Kind() == KindSwitch {
 				return ErrSwitch.WithArgs(flag.Key())
 			}
-			f.consume(flag.Key(), arg)
+			if err := f.consume(flag.Key(), arg); err != nil {
+				return err
+			}
 			saved = ""
 			continue
 		}
 
 		if saved == "" {
 			if flag.sub != nil {
-				if i == len(args)-1 {
+				comb := f.matchcombined(arg)
+				if !comb && i == len(args)-1 {
 					return ErrSub.WithArgs(flag.Key())
+				}
+				if comb {
+					a := strings.Split(arg, "")
+					return flag.sub.Parse(append(a[1:], args[i+1:]...))
 				}
 				return flag.sub.Parse(args[i+1:])
 			}
@@ -264,7 +294,7 @@ func (f *Flags) Parse(args []string) error {
 			return ErrNotFound.WithArgs(saved)
 		}
 		if flag.Kind() == KindRequired {
-			return ErrRequired.WithArgs(saved)
+			return ErrReqVal.WithArgs(saved)
 		}
 		if err := f.consume(flag.Key(), ""); err != nil {
 			return err
