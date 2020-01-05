@@ -103,6 +103,9 @@ func (f *Flag) Default() string { return f.defval }
 // Kind returns Flag kind.
 func (f *Flag) Kind() FlagKind { return f.kind }
 
+// Sub returns flags sub flags, if any.
+func (f *Flag) Sub() *Flags { return f.sub }
+
 // Excl returns if this flag is exclusive in Flags.
 func (f *Flag) Excl() bool { return f.excl }
 

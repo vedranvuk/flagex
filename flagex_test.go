@@ -395,3 +395,12 @@ func TestMux(t *testing.T) {
 	// fmt.Println(flag.Print())
 
 }
+
+func BenchmarkFlags(b *testing.B) {
+	b.StopTimer()
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+
+	}
+}

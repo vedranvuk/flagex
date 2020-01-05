@@ -6,11 +6,11 @@
 package reflag
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
 
 	"github.com/vedranvuk/flagex"
+	"github.com/vedranvuk/reflectex"
 )
 
 func makeflags(flags *flagex.Flags, v reflect.Value) (*flagex.Flags, error) {
@@ -20,18 +20,24 @@ func makeflags(flags *flagex.Flags, v reflect.Value) (*flagex.Flags, error) {
 		key := strings.ToLower(v.Type().Field(i).Name)
 		short := string(key[0])
 		paramhelp := strings.ToLower(v.Field(i).Type().Name())
+		help := v.Type().Field(i).Name
 		if fv.Kind() == reflect.Struct {
 			new, err := makeflags(flagex.New(), v.Field(i).Elem())
 			if err != nil {
 				return nil, err
 			}
-			if err := flags.Sub(key, short, fmt.Sprintf("Submenu '%s'", key), new); err != nil {
+			if err := flags.Sub(key, short, help, new); err != nil {
 				return nil, err
 			}
 		}
 		kind := flagex.KindOptional
 		if fv.Kind() == reflect.String {
-			if err := flags.Def(key, short, fmt.Sprintf("Field '%s' (%s)", key, paramhelp), paramhelp, "", kind); err != nil {
+			if err := flags.Def(key, short, help, paramhelp, "", kind); err != nil {
+				return nil, err
+			}
+		}
+		if fv.Kind() == reflect.Bool {
+			if err := flags.Switch(key, short, help); err != nil {
 				return nil, err
 			}
 		}
@@ -41,6 +47,37 @@ func makeflags(flags *flagex.Flags, v reflect.Value) (*flagex.Flags, error) {
 }
 
 func applyflags(flags *flagex.Flags, v reflect.Value) (*flagex.Flags, error) {
+	for i := 0; i < v.NumField(); i++ {
+		fv := reflect.Indirect(v.Field(i))
+		key := strings.ToLower(v.Type().Field(i).Name)
+		flag, ok := flags.Key(key)
+		if !ok {
+			panic("no key found")
+		}
+		if !flag.Parsed() {
+			continue
+		}
+		if fv.Kind() == reflect.Struct {
+			_, err := applyflags(flag.Sub(), fv)
+			if err != nil {
+				return nil, err
+			}
+		}
+		var val reflect.Value
+		var err error
+		if flag.Sub() == nil {
+			if flag.Kind() == flagex.KindSwitch {
+				val, err = reflectex.StringToValue("true", fv)
+			} else {
+				val, err = reflectex.StringToValue(flag.Value(), fv)
+			}
+			if err != nil {
+				return nil, err
+			}
+			fv.Set(val)
+		}
+	}
+
 	return flags, nil
 }
 
