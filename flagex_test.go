@@ -9,8 +9,6 @@ import (
 
 func TestFlags(t *testing.T) {
 
-	return
-
 	var (
 		Args = []string{
 			"--config",
@@ -245,19 +243,19 @@ func TestMux(t *testing.T) {
 	for _, fi := range PackageItems {
 		pkg.Def(fi.Key, fi.ShortKey, fi.Help, fi.Default, fi.Kind)
 	}
-	pkg.Exclusive(PackageExcl[:]...)
+	pkg.Exclusive(PackageExcl...)
 
 	dbs := New()
 	for _, fi := range DatabaseItems {
 		dbs.Def(fi.Key, fi.ShortKey, fi.Help, fi.Default, fi.Kind)
 	}
-	dbs.Exclusive(DatabaseExcl[:]...)
+	dbs.Exclusive(DatabaseExcl...)
 
 	snc := New()
 	for _, fi := range SyncItems {
 		snc.Def(fi.Key, fi.ShortKey, fi.Help, fi.Default, fi.Kind)
 	}
-	snc.Exclusive(SyncExcl[:]...)
+	snc.Exclusive(SyncExcl...)
 
 	var RootItems = []FlagItem{
 		FlagItem{
@@ -300,8 +298,6 @@ func TestMux(t *testing.T) {
 	}
 
 	var TestItems = []TestItem{
-		/*
-		 */
 		TestItem{"", ErrParams},
 		TestItem{"-P", ErrSub},
 		TestItem{"-P -l", nil},
@@ -321,7 +317,7 @@ func TestMux(t *testing.T) {
 		TestItem{"-S -t target -i -b", ErrExcl},
 		TestItem{"-S -t target -u -b", ErrExcl},
 		TestItem{"-S -t target -i -v extra", ErrSwitch},
-		TestItem{"-S -i -v -t", ErrRequired},
+		TestItem{"-S -i -v -t", ErrReqVal},
 		TestItem{"-S -? -v", ErrNotFound},
 		TestItem{"-S -v -?", ErrSwitch},
 		TestItem{"-S -? -!", ErrNotFound},
@@ -347,13 +343,20 @@ func TestMux(t *testing.T) {
 		TestItem{"-S --target target --mode mode -v --target target", ErrDupKey},
 		TestItem{"-S --target target --mode mode -v --mode mode", ErrDupKey},
 		TestItem{"-Svi --mode mode --target target", nil},
-		/*
-		 */
+		TestItem{"-Plc", nil},
+		TestItem{"-Dcb", ErrExcl},
+		TestItem{"-Svt target -m mode", nil},
+		TestItem{"-Svt target -m", ErrReqVal},
+		TestItem{"-Svm mode --target", ErrReqVal},
+		TestItem{"-Svm --?", ErrRequired},
+		TestItem{"-Sv --mode any --target best", nil},
+		TestItem{"-Sv --mode --? --target --!", nil},
+		TestItem{"-Sib", ErrExcl},
+		TestItem{"-S -i -b", ErrExcl},
 	}
 
 	for i := 0; i < len(TestItems); i++ {
 		err := flag.Parse(strings.Split(TestItems[i].Args, " "))
-		// fmt.Printf("'%s': expected '%v', got '%v'\n", TestItems[i].Args, TestItems[i].ExpectedErr, err)
 		if !errors.Is(err, TestItems[i].ExpectedErr) {
 			log.Fatalf("'%s': expected '%v', got '%v'", TestItems[i].Args, TestItems[i].ExpectedErr, err)
 		}

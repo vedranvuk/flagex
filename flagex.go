@@ -22,7 +22,7 @@ var (
 	ErrExcl = ErrFlag.WrapFormat("'%s' is exclusive to '%s'")
 	// ErrRequired is returned when a required flag was not parsed.
 	ErrRequired = ErrFlag.WrapFormat("required key '%s' not specified")
-	// ErrReqVal
+	// ErrReqVal is returned when no value was passed to a key that requires one.
 	ErrReqVal = ErrFlag.WrapFormat("arg '%s' requires a param.")
 	// ErrSwitch is returned when a switch was passed a param.
 	ErrSwitch = ErrFlag.WrapFormat("switch '%s' takes no params")
@@ -69,7 +69,7 @@ func (f *Flag) Help() string { return f.help }
 // Default is returned by Value if no value was parsed for this Flag.
 func (f *Flag) Default() string { return f.defval }
 
-// Excl
+// Excl returns if this flag is exclusive in Flags.
 func (f *Flag) Excl() bool { return f.excl }
 
 // Parsed returns if this Flag was parsed.
@@ -93,6 +93,7 @@ func (f *Flag) Value() string {
 type Flags struct {
 	keys  map[string]*Flag
 	short map[string]string
+	last  string
 }
 
 // New creates a new Flags instance.
@@ -172,15 +173,32 @@ func (f *Flags) Exclusive(keys ...string) error {
 	return nil
 }
 
-// matchcombined
-func (f *Flags) matchcombined(arg string) bool {
-	if len(arg) > 0 {
-		if flag, ok := f.Short(string(arg[0])); ok {
-			if flag.sub != nil {
-				return flag.sub.matchcombined(arg[1:])
-			}
-			return true
+// reset resets values and parsed states to self.
+func (f *Flags) reset() {
+	for _, flag := range f.keys {
+		flag.parsed = false
+		flag.parsedval = false
+		flag.value = ""
+		if flag.sub != nil {
+			flag.sub.reset()
 		}
+	}
+}
+
+// matchcombined matches a possibly multilevel combined key against defined Flags.
+func (f *Flags) matchcombined(arg string) bool {
+	var flag *Flag
+	var ok bool
+	for i := 0; i < len(arg); i++ {
+		_, ok = f.Short(string(arg[i]))
+		if !ok && flag != nil && flag.sub != nil {
+			if len(arg[i:]) == 0 {
+				return false
+			}
+			return flag.sub.matchcombined(arg[i:])
+		}
+		flag, _ = f.Short(string(arg[i]))
+		return true
 	}
 	return false
 }
@@ -238,12 +256,9 @@ func (f *Flags) consume(key, value string) error {
 
 // Parse parses specified args.
 func (f *Flags) Parse(args []string) error {
+	f.last = strings.Join(args, " ")
+	f.reset()
 	var flag *Flag
-	for _, flag = range f.keys {
-		flag.parsed = false
-		flag.parsedval = false
-		flag.value = ""
-	}
 	var ok bool
 	var saved string
 	var arg string
@@ -276,11 +291,16 @@ func (f *Flags) Parse(args []string) error {
 		if saved == "" {
 			if flag.sub != nil {
 				comb := f.matchcombined(arg)
-				if !comb && i == len(args)-1 {
-					return ErrSub.WithArgs(flag.Key())
+				if i == len(args)-1 {
+					if comb && len(arg[1:]) == 1 {
+						return ErrSub.WithArgs(flag.Key())
+					}
 				}
 				if comb {
-					a := strings.Split(arg, "")
+					a := strings.Split(arg[1:], "")
+					for i, v := range a {
+						a[i] = "-" + v
+					}
 					return flag.sub.Parse(append(a[1:], args[i+1:]...))
 				}
 				return flag.sub.Parse(args[i+1:])
@@ -305,6 +325,9 @@ func (f *Flags) Parse(args []string) error {
 		flag, ok := f.findflag(saved)
 		if !ok {
 			return ErrNotFound.WithArgs(saved)
+		}
+		if flag.Kind() == KindRequired {
+			return ErrReqVal.WithArgs(saved)
 		}
 		if err := f.consume(flag.Key(), ""); err != nil {
 			return err
