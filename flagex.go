@@ -2,7 +2,11 @@
 package flagex
 
 import (
+	"bytes"
+	"fmt"
+	"io"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/vedranvuk/errorex"
 )
@@ -43,11 +47,28 @@ const (
 	// KindSwitch marks a flag as optional that takes no params.
 	// Flags with sub flags take no flags and are marked as KindSwitch.
 	KindSwitch
+	// KindSub
+	KindSub
 )
+
+// String implements Stringer interface on FlagKind.
+func (fk FlagKind) String() string {
+	switch fk {
+	case KindOptional:
+		return "optional"
+	case KindRequired:
+		return "required"
+	case KindSwitch:
+		return "switch"
+	case KindSub:
+		return "sub"
+	}
+	return ""
+}
 
 // Flag represents a defined flag.
 type Flag struct {
-	key, shortkey, help, defval string
+	key, shortkey, help, paramhelp, defval string
 
 	kind      FlagKind
 	sub       *Flags
@@ -65,6 +86,9 @@ func (f *Flag) Shortkey() string { return f.shortkey }
 
 // Help returns Flag help text.
 func (f *Flag) Help() string { return f.help }
+
+// ParamHelp returns Flag param help text.
+func (f *Flag) ParamHelp() string { return f.paramhelp }
 
 // Default is returned by Value if no value was parsed for this Flag.
 func (f *Flag) Default() string { return f.defval }
@@ -105,7 +129,7 @@ func New() *Flags {
 }
 
 // def defines a flag then returns it or an error.
-func (f *Flags) def(key, shortkey, help, defval string, typ FlagKind) (*Flag, error) {
+func (f *Flags) def(key, shortkey, help, paramhelp, defval string, typ FlagKind) (*Flag, error) {
 	if key == "" {
 		return nil, ErrInvalid
 	}
@@ -115,7 +139,7 @@ func (f *Flags) def(key, shortkey, help, defval string, typ FlagKind) (*Flag, er
 	if _, ok := f.short[shortkey]; shortkey != "" && ok {
 		return nil, ErrDupShort.WithArgs(shortkey)
 	}
-	flag := &Flag{key, shortkey, help, defval, typ, nil, false, false, false, ""}
+	flag := &Flag{key, shortkey, help, paramhelp, defval, typ, nil, false, false, false, ""}
 	f.keys[key] = flag
 	if shortkey != "" {
 		f.short[shortkey] = key
@@ -123,12 +147,30 @@ func (f *Flags) def(key, shortkey, help, defval string, typ FlagKind) (*Flag, er
 	return flag, nil
 }
 
+// FLag defines
+func (f *Flags) Flag(key, shortkey, help string) (err error) {
+	_, err = f.def(key, shortkey, help, "", "", KindSwitch)
+	return
+}
+
+// Opt defines an optional flag.
+func (f *Flags) Opt(key, shortkey, help, paramhelp, defval string) (err error) {
+	_, err = f.def(key, shortkey, help, paramhelp, defval, KindOptional)
+	return
+}
+
+// Req defines a required flag.
+func (f *Flags) Req(key, shortkey, help, paramhelp, defval string) (err error) {
+	_, err = f.def(key, shortkey, help, paramhelp, defval, KindRequired)
+	return
+}
+
 // Def defines a flag under specified key and optional
 // longkey with specified help and default value defval.
 // key and shortkey must be unique in Flags, shortkey is optional.
 // If a non-nil error is returned flag was not defined.
-func (f *Flags) Def(key, shortkey, help, defval string, typ FlagKind) (err error) {
-	_, err = f.def(key, shortkey, help, defval, typ)
+func (f *Flags) Def(key, shortkey, help, paramhelp, defval string, typ FlagKind) (err error) {
+	_, err = f.def(key, shortkey, help, paramhelp, defval, typ)
 	return
 }
 
@@ -136,7 +178,7 @@ func (f *Flags) Def(key, shortkey, help, defval string, typ FlagKind) (err error
 // must be unique in these Flags. When invoken rest of params are passed to it.
 // help defines the flag help. If a non-nil error is returned flag was not defined.
 func (f *Flags) Sub(key, shortkey, help string, sub *Flags) error {
-	flag, err := f.def(key, shortkey, help, "", KindSwitch)
+	flag, err := f.def(key, shortkey, help, "", "", KindSub)
 	if err != nil {
 		return err
 	}
@@ -296,6 +338,7 @@ func (f *Flags) Parse(args []string) error {
 						return ErrSub.WithArgs(flag.Key())
 					}
 				}
+				flag.parsed = true
 				if comb {
 					a := strings.Split(arg[1:], "")
 					for i, v := range a {
@@ -346,4 +389,58 @@ func (f *Flags) Parse(args []string) error {
 		return ErrParams
 	}
 	return nil
+}
+
+// printindent prints flags to w indented with indent.
+func (f *Flags) printindent(w io.Writer, indent string) {
+	fmt.Fprintf(w, "%s[Short]\t[Key]\t[Kind]\t[Help]\t\n", indent)
+	for _, flag := range f.keys {
+		val := flag.Key()
+		if flag.paramhelp != "" {
+			val = fmt.Sprintf("%s <%s>", val, flag.paramhelp)
+		}
+		if flag.Shortkey() == "" {
+			fmt.Fprintf(w, "%s%s\t--%s\t%s\t%s\t\n", indent, "", val, flag.Kind(), flag.Help())
+		} else {
+			fmt.Fprintf(w, "%s-%s\t--%s\t%s\t%s\t\n", indent, flag.Shortkey(), val, flag.Kind(), flag.Help())
+		}
+		if flag.sub != nil {
+			flag.sub.printindent(w, indent+"\t")
+		}
+	}
+}
+
+// Print returns a printable string of Flags.
+func (f *Flags) Print() string {
+	buf := bytes.NewBuffer(nil)
+	w := tabwriter.NewWriter(buf, 0, 0, 3, ' ', 0)
+	f.printindent(w, "")
+	w.Flush()
+	return string(buf.Bytes())
+}
+
+// Parsed returns a map of parsed Flag key:value pairs.
+// Sub will return a map, Flags may return a string if parsed or
+// nil if not parsed. Parsed returns whichever args were parsed
+// at last Parse. Parsed is as valid as what Parse returned.
+func (f *Flags) Parsed() map[interface{}]interface{} {
+	ret := make(map[interface{}]interface{})
+	for kk, kv := range f.keys {
+		if kv.Parsed() {
+			if kv.sub != nil {
+				_, ok := ret[kk]
+				if !ok {
+					ret[kk] = make(map[interface{}]interface{})
+				}
+				ret[kk] = kv.sub.Parsed()
+				continue
+			}
+			if kv.ParsedVal() {
+				ret[kk] = kv.Value()
+			} else {
+				ret[kk] = nil
+			}
+		}
+	}
+	return ret
 }
