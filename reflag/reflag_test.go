@@ -16,7 +16,7 @@ func TestStruct(t *testing.T) {
 	type (
 		Sub struct {
 			Name  string `json:"name"`
-			Admin bool
+			Admin bool   `json:"admin"`
 		}
 
 		Main struct {
