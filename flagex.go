@@ -1,3 +1,8 @@
+// Copyright 2019 Vedran Vuk. All rights reserved.
+// Use of this source code is governed by a MIT
+// license that can be found in the LICENSE file.
+
+// Package flaxeg implements a command line parser.
 // Not thread-safe.
 package flagex
 
@@ -47,7 +52,7 @@ const (
 	// KindSwitch marks a flag as optional that takes no params.
 	// Flags with sub flags take no flags and are marked as KindSwitch.
 	KindSwitch
-	// KindSub
+	// KindSub marks a flag as a Flags subcategory prefix.
 	KindSub
 )
 
@@ -93,6 +98,9 @@ func (f *Flag) ParamHelp() string { return f.paramhelp }
 // Default is returned by Value if no value was parsed for this Flag.
 func (f *Flag) Default() string { return f.defval }
 
+// Kind returns Flag kind.
+func (f *Flag) Kind() FlagKind { return f.kind }
+
 // Excl returns if this flag is exclusive in Flags.
 func (f *Flag) Excl() bool { return f.excl }
 
@@ -101,9 +109,6 @@ func (f *Flag) Parsed() bool { return f.parsed }
 
 // ParsedVal returns if FLag value was parsed.
 func (f *Flag) ParsedVal() bool { return f.parsedval }
-
-// Kind returns Flag kind.
-func (f *Flag) Kind() FlagKind { return f.kind }
 
 // Kind returns current FLag value.
 func (f *Flag) Value() string {
@@ -147,19 +152,19 @@ func (f *Flags) def(key, shortkey, help, paramhelp, defval string, typ FlagKind)
 	return flag, nil
 }
 
-// FLag defines
-func (f *Flags) Flag(key, shortkey, help string) (err error) {
+// Switch defines an optional switch without a param.
+func (f *Flags) Switch(key, shortkey, help string) (err error) {
 	_, err = f.def(key, shortkey, help, "", "", KindSwitch)
 	return
 }
 
-// Opt defines an optional flag.
+// Opt defines an optional flag with a required param.
 func (f *Flags) Opt(key, shortkey, help, paramhelp, defval string) (err error) {
 	_, err = f.def(key, shortkey, help, paramhelp, defval, KindOptional)
 	return
 }
 
-// Req defines a required flag.
+// Req defines a required flag with a required param.
 func (f *Flags) Req(key, shortkey, help, paramhelp, defval string) (err error) {
 	_, err = f.def(key, shortkey, help, paramhelp, defval, KindRequired)
 	return
@@ -186,17 +191,6 @@ func (f *Flags) Sub(key, shortkey, help string, sub *Flags) error {
 	return nil
 }
 
-// Key returns Flag if under specified key and a truth if it exists.
-func (f *Flags) Key(key string) (flag *Flag, truth bool) {
-	flag, truth = f.keys[key]
-	return
-}
-
-// Short returns Flag under specified shortkey and a truth if it exists.
-func (f *Flags) Short(shortkey string) (flag *Flag, truth bool) {
-	return f.Key(f.short[shortkey])
-}
-
 // Exclusive sets specified keys as mutually exclusive in Flags.
 // If more than one key from exclusive group are parsed, parse will error.
 // Keys must already be defined.
@@ -213,6 +207,17 @@ func (f *Flags) Exclusive(keys ...string) error {
 		flag.excl = true
 	}
 	return nil
+}
+
+// Key returns Flag if under specified key and a truth if it exists.
+func (f *Flags) Key(key string) (flag *Flag, truth bool) {
+	flag, truth = f.keys[key]
+	return
+}
+
+// Short returns Flag under specified shortkey and a truth if it exists.
+func (f *Flags) Short(shortkey string) (flag *Flag, truth bool) {
+	return f.Key(f.short[shortkey])
 }
 
 // reset resets values and parsed states to self.

@@ -1,7 +1,12 @@
+// Copyright 2019 Vedran Vuk. All rights reserved.
+// Use of this source code is governed by a MIT
+// license that can be found in the LICENSE file.
+
 package flagex
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 	"testing"
@@ -21,19 +26,19 @@ func TestFlags(t *testing.T) {
 	)
 
 	f := New()
-	if err := f.Def("username", "u", "specify username", "guest", KindOptional); err != nil {
+	if err := f.Def("username", "u", "specify username", "username", "guest", KindOptional); err != nil {
 		t.Fatalf("Def '%s' failed ", "username")
 	}
-	if err := f.Def("ip", "", "specify ip address", "127.0.0.1", KindRequired); err != nil {
+	if err := f.Def("ip", "", "specify ip address", "ip", "127.0.0.1", KindRequired); err != nil {
 		t.Fatalf("Def '%s' failed ", "ip")
 	}
-	if err := f.Def("config", "c", "specify config file", "", KindRequired); err != nil {
+	if err := f.Def("config", "c", "specify config file", "filename", "", KindRequired); err != nil {
 		t.Fatalf("Def '%s' failed ", "config")
 	}
-	if err := f.Def("verbose", "v", "v for verbose", "", KindSwitch); err != nil {
+	if err := f.Def("verbose", "v", "v for verbose", "", "", KindSwitch); err != nil {
 		t.Fatalf("Def '%s' failed ", "verbose")
 	}
-	if err := f.Def("mode", "M", "use mode", "best", KindOptional); err != nil {
+	if err := f.Def("mode", "M", "use mode", "mode ", "best", KindOptional); err != nil {
 		t.Fatalf("Def '%s' failed ", "version")
 	}
 
@@ -116,12 +121,13 @@ func TestFlags(t *testing.T) {
 func TestMux(t *testing.T) {
 
 	type FlagItem struct {
-		Key      string
-		ShortKey string
-		Help     string
-		Default  string
-		Kind     FlagKind
-		Sub      *Flags
+		Key       string
+		ShortKey  string
+		Help      string
+		ParamHelp string
+		Default   string
+		Kind      FlagKind
+		Sub       *Flags
 	}
 
 	var PackageItems = []FlagItem{
@@ -129,6 +135,7 @@ func TestMux(t *testing.T) {
 			"list",
 			"l",
 			"list packages",
+			"",
 			"",
 			KindOptional,
 			nil,
@@ -138,6 +145,7 @@ func TestMux(t *testing.T) {
 			"e",
 			"export package list",
 			"",
+			"",
 			KindOptional,
 			nil,
 		},
@@ -145,6 +153,7 @@ func TestMux(t *testing.T) {
 			"csv",
 			"c",
 			"use csv format",
+			"",
 			"",
 			KindOptional,
 			nil,
@@ -161,6 +170,7 @@ func TestMux(t *testing.T) {
 			"c",
 			"clean database",
 			"",
+			"",
 			KindOptional,
 
 			nil,
@@ -169,6 +179,7 @@ func TestMux(t *testing.T) {
 			"backup",
 			"b",
 			"backup database",
+			"",
 			"",
 			KindOptional,
 
@@ -185,6 +196,7 @@ func TestMux(t *testing.T) {
 			"install",
 			"i",
 			"install a package",
+			"package name",
 			"",
 			KindOptional,
 
@@ -194,6 +206,7 @@ func TestMux(t *testing.T) {
 			"uninstall",
 			"u",
 			"uninstall a package",
+			"package name",
 			"",
 			KindOptional,
 
@@ -203,6 +216,7 @@ func TestMux(t *testing.T) {
 			"update",
 			"b",
 			"update packages",
+			"package name",
 			"",
 			KindOptional,
 			nil,
@@ -211,6 +225,7 @@ func TestMux(t *testing.T) {
 			"target",
 			"t",
 			"sync target (required)",
+			"targetname",
 			"",
 			KindRequired,
 			nil,
@@ -219,6 +234,7 @@ func TestMux(t *testing.T) {
 			"mode",
 			"m",
 			"sync mode",
+			"mode",
 			"best",
 			KindRequired,
 			nil,
@@ -227,6 +243,7 @@ func TestMux(t *testing.T) {
 			"verbose",
 			"v",
 			"verbose output",
+			"",
 			"",
 			KindSwitch,
 			nil,
@@ -241,19 +258,19 @@ func TestMux(t *testing.T) {
 
 	pkg := New()
 	for _, fi := range PackageItems {
-		pkg.Def(fi.Key, fi.ShortKey, fi.Help, fi.Default, fi.Kind)
+		pkg.Def(fi.Key, fi.ShortKey, fi.Help, fi.ParamHelp, fi.Default, fi.Kind)
 	}
 	pkg.Exclusive(PackageExcl...)
 
 	dbs := New()
 	for _, fi := range DatabaseItems {
-		dbs.Def(fi.Key, fi.ShortKey, fi.Help, fi.Default, fi.Kind)
+		dbs.Def(fi.Key, fi.ShortKey, fi.Help, fi.ParamHelp, fi.Default, fi.Kind)
 	}
 	dbs.Exclusive(DatabaseExcl...)
 
 	snc := New()
 	for _, fi := range SyncItems {
-		snc.Def(fi.Key, fi.ShortKey, fi.Help, fi.Default, fi.Kind)
+		snc.Def(fi.Key, fi.ShortKey, fi.Help, fi.ParamHelp, fi.Default, fi.Kind)
 	}
 	snc.Exclusive(SyncExcl...)
 
@@ -263,8 +280,8 @@ func TestMux(t *testing.T) {
 			"P",
 			"work with packages",
 			"",
+			"",
 			KindOptional,
-
 			pkg,
 		},
 		FlagItem{
@@ -272,8 +289,8 @@ func TestMux(t *testing.T) {
 			"D",
 			"work with database",
 			"",
+			"",
 			KindOptional,
-
 			dbs,
 		},
 		FlagItem{
@@ -281,9 +298,18 @@ func TestMux(t *testing.T) {
 			"S",
 			"package sync",
 			"",
+			"",
 			KindOptional,
-
 			snc,
+		},
+		FlagItem{
+			"verbose",
+			"v",
+			"verbose output",
+			"",
+			"",
+			KindOptional,
+			nil,
 		},
 	}
 
@@ -357,8 +383,14 @@ func TestMux(t *testing.T) {
 
 	for i := 0; i < len(TestItems); i++ {
 		err := flag.Parse(strings.Split(TestItems[i].Args, " "))
+		fmt.Printf("Testing '%s'\n", TestItems[i].Args)
 		if !errors.Is(err, TestItems[i].ExpectedErr) {
 			log.Fatalf("'%s': expected '%v', got '%v'", TestItems[i].Args, TestItems[i].ExpectedErr, err)
 		}
+		fmt.Printf("Result '%v'\n", err)
+		fmt.Printf("Parsed: '%#v'\n", flag.Parsed())
+		fmt.Println()
 	}
+	fmt.Println(flag.Print())
+
 }
