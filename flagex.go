@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 	"text/tabwriter"
 
@@ -19,26 +20,28 @@ import (
 var (
 	// ErrFlag is the base flagex error.
 	ErrFlag = errorex.New("flagex")
+	// ErrArgs is returned when Parse is called with empty arguments.
+	ErrArgs = ErrFlag.Wrap("no arguments")
 	// ErrInvalid is returned when an invalid flag key is specified.
 	ErrInvalid = ErrFlag.WrapFormat("invalid key")
 	// ErrNotFound is returned when a non existent key is requested.
 	ErrNotFound = ErrFlag.WrapFormat("key '%s' not found")
-	// ErrDupKey is returned when a flag with a duplicate key is being registered.
-	ErrDupKey = ErrFlag.WrapFormat("duplicate key '%s'")
+	// ErrDuplicate is returned when a flag with a duplicate key is being registered.
+	ErrDuplicate = ErrFlag.WrapFormat("duplicate key '%s'")
 	// ErrDupShort is returned when a flag with a duplicate shortkey is being registered.
 	ErrDupShort = ErrFlag.WrapFormat("duplicate shortkey '%s'")
-	// ErrExcl is returned when a more than flag from an exclusive set is parsed.
-	ErrExcl = ErrFlag.WrapFormat("'%s' is exclusive to '%s'")
+	// ErrExclusive is returned when a more than flag from an exclusive set is parsed.
+	ErrExclusive = ErrFlag.WrapFormat("'%s' is exclusive to '%s'")
 	// ErrRequired is returned when a required flag was not parsed.
 	ErrRequired = ErrFlag.WrapFormat("required key '%s' not specified")
 	// ErrReqVal is returned when no value was passed to a key that requires one.
 	ErrReqVal = ErrFlag.WrapFormat("arg '%s' requires a param.")
 	// ErrSwitch is returned when a switch was passed a param.
 	ErrSwitch = ErrFlag.WrapFormat("switch '%s' takes no params")
-	// ErrParams is returned when Parse is called with empty params.
-	ErrParams = ErrFlag.Wrap("parse invoken with no params")
-	// ErrSub is returned when a sub switsh was parsed with no args following it.
+	// ErrSub is returned when a sub switch was parsed with no args following it.
 	ErrSub = ErrFlag.WrapFormat("sub '%s' invoken with no params")
+
+	ErrParam = ErrFlag.Wrap("invalid param")
 )
 
 // FlagKind specifies Flag kind.
@@ -139,7 +142,7 @@ func (f *Flags) def(key, shortkey, help, paramhelp, defval string, typ FlagKind)
 		return nil, ErrInvalid
 	}
 	if _, ok := f.keys[key]; ok {
-		return nil, ErrDupKey.WithArgs(key)
+		return nil, ErrDuplicate.WithArgs(key)
 	}
 	if _, ok := f.short[shortkey]; shortkey != "" && ok {
 		return nil, ErrDupShort.WithArgs(shortkey)
@@ -234,18 +237,23 @@ func (f *Flags) reset() {
 
 // matchcombined matches a possibly multilevel combined key against defined Flags.
 func (f *Flags) matchcombined(arg string) bool {
+	if len(arg) < 2 {
+		return false
+	}
 	var flag *Flag
 	var ok bool
-	for i := 0; i < len(arg); i++ {
-		_, ok = f.Short(string(arg[i]))
-		if !ok && flag != nil && flag.sub != nil {
-			if len(arg[i:]) == 0 {
-				return false
+	for len(arg) > 0 {
+		_, ok = f.Short(string(arg[0]))
+		if ok {
+			if flag != nil && flag.sub != nil {
+				if len(arg) == 1 {
+					return false
+				}
+				return flag.sub.matchcombined(arg[1:])
 			}
-			return flag.sub.matchcombined(arg[i:])
+			return true
 		}
-		flag, _ = f.Short(string(arg[i]))
-		return true
+		break
 	}
 	return false
 }
@@ -284,12 +292,12 @@ func (f *Flags) consume(key, value string) error {
 		return ErrNotFound.WithArgs(key)
 	}
 	if flag.Parsed() {
-		return ErrDupKey.WithArgs(key)
+		return ErrDuplicate.WithArgs(key)
 	}
 	if flag.Excl() {
 		for _, v := range f.keys {
 			if v.Parsed() && v.Excl() {
-				return ErrExcl.WithArgs(v.Key(), key)
+				return ErrExclusive.WithArgs(v.Key(), key)
 			}
 		}
 	}
@@ -337,19 +345,18 @@ func (f *Flags) Parse(args []string) error {
 
 		if saved == "" {
 			if flag.sub != nil {
-				comb := f.matchcombined(arg)
-				if i == len(args)-1 {
-					if comb && len(arg[1:]) == 1 {
-						return ErrSub.WithArgs(flag.Key())
-					}
-				}
 				flag.parsed = true
+				arg = strings.TrimPrefix(arg, "-")
+				comb := f.matchcombined(arg)
+				if !comb && i == len(args)-1 {
+					return ErrSub.WithArgs(flag.Key())
+				}
 				if comb {
 					a := strings.Split(arg[1:], "")
 					for i, v := range a {
 						a[i] = "-" + v
 					}
-					return flag.sub.Parse(append(a[1:], args[i+1:]...))
+					return flag.sub.Parse(append(a, args[i+1:]...))
 				}
 				return flag.sub.Parse(args[i+1:])
 			}
@@ -391,23 +398,23 @@ func (f *Flags) Parse(args []string) error {
 		}
 	}
 	if noparse {
-		return ErrParams
+		return ErrArgs
 	}
 	return nil
 }
 
 // printindent prints flags to w indented with indent.
 func (f *Flags) printindent(w io.Writer, indent string) {
-	fmt.Fprintf(w, "%s[Short]\t[Key]\t[Kind]\t[Help]\t\n", indent)
+	fmt.Fprintf(w, "%s[Short]\t[Key]\t[Help]\t\n", indent)
 	for _, flag := range f.keys {
 		val := flag.Key()
 		if flag.paramhelp != "" {
 			val = fmt.Sprintf("%s <%s>", val, flag.paramhelp)
 		}
 		if flag.Shortkey() == "" {
-			fmt.Fprintf(w, "%s%s\t--%s\t%s\t%s\t\n", indent, "", val, flag.Kind(), flag.Help())
+			fmt.Fprintf(w, "%s%s\t--%s\t%s\t\n", indent, "", val, flag.Help())
 		} else {
-			fmt.Fprintf(w, "%s-%s\t--%s\t%s\t%s\t\n", indent, flag.Shortkey(), val, flag.Kind(), flag.Help())
+			fmt.Fprintf(w, "%s-%s\t--%s\t%s\t\n", indent, flag.Shortkey(), val, flag.Help())
 		}
 		if flag.sub != nil {
 			flag.sub.printindent(w, indent+"\t")
@@ -448,4 +455,51 @@ func (f *Flags) Parsed() map[interface{}]interface{} {
 		}
 	}
 	return ret
+}
+
+func makeflags(flags *Flags, v reflect.Value) (*Flags, error) {
+
+	for i := 0; i < v.NumField(); i++ {
+		fv := reflect.Indirect(v.Field(i))
+		key := strings.ToLower(v.Type().Field(i).Name)
+		short := string(key[0])
+		paramhelp := strings.ToLower(v.Field(i).Type().Name())
+		if fv.Kind() == reflect.Struct {
+			new, err := makeflags(New(), v.Field(i).Elem())
+			if err != nil {
+				return nil, err
+			}
+			if err := flags.Sub(key, short, fmt.Sprintf("Submenu '%s'", key), new); err != nil {
+				return nil, err
+			}
+		}
+		kind := KindOptional
+		if fv.Kind() == reflect.String {
+			if err := flags.Def(key, short, fmt.Sprintf("Field '%s' (%s)", key, paramhelp), paramhelp, "", kind); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return flags, nil
+}
+
+// ToStruct parses args to a struct.
+func FromStruct(v interface{}, args []string) (*Flags, error) {
+	rv := reflect.Indirect(reflect.ValueOf(v))
+	if !rv.IsValid() {
+		return nil, ErrParam
+	}
+	if rv.Kind() != reflect.Struct {
+		return nil, ErrParam
+	}
+	flags, err := makeflags(New(), rv)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(flags.Print())
+	if err := flags.Parse(args); err != nil {
+		return nil, err
+	}
+	return flags, nil
 }

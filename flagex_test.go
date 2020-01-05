@@ -324,24 +324,24 @@ func TestMux(t *testing.T) {
 	}
 
 	var TestItems = []TestItem{
-		TestItem{"", ErrParams},
+		TestItem{"", ErrArgs},
 		TestItem{"-P", ErrSub},
 		TestItem{"-P -l", nil},
 		TestItem{"-P -e", nil},
 		TestItem{"-P -l -c", nil},
 		TestItem{"-P -e -c", nil},
-		TestItem{"-P -l -e", ErrExcl},
+		TestItem{"-P -l -e", ErrExclusive},
 		TestItem{"-D -c", nil},
 		TestItem{"-D -b", nil},
-		TestItem{"-D -c -b", ErrExcl},
+		TestItem{"-D -c -b", ErrExclusive},
 		TestItem{"-S -i", ErrRequired},
 		TestItem{"-S -t -i", ErrReqVal},
 		TestItem{"-S -t target -m improved -u", nil},
 		TestItem{"-S -t target -m new -i", nil},
 		TestItem{"-S -t target -b", ErrRequired},
-		TestItem{"-S -t target -i -u", ErrExcl},
-		TestItem{"-S -t target -i -b", ErrExcl},
-		TestItem{"-S -t target -u -b", ErrExcl},
+		TestItem{"-S -t target -i -u", ErrExclusive},
+		TestItem{"-S -t target -i -b", ErrExclusive},
+		TestItem{"-S -t target -u -b", ErrExclusive},
 		TestItem{"-S -t target -i -v extra", ErrSwitch},
 		TestItem{"-S -i -v -t", ErrReqVal},
 		TestItem{"-S -? -v", ErrNotFound},
@@ -349,7 +349,7 @@ func TestMux(t *testing.T) {
 		TestItem{"-S -? -!", ErrNotFound},
 		TestItem{"-S", ErrSub},
 		TestItem{"-?", ErrNotFound},
-		TestItem{"-S -t target -m new -v -v", ErrDupKey},
+		TestItem{"-S -t target -m new -v -v", ErrDuplicate},
 		TestItem{"-S", ErrSub},
 		TestItem{"-S -S", ErrNotFound},
 		TestItem{"-S -S -S", ErrNotFound},
@@ -365,32 +365,60 @@ func TestMux(t *testing.T) {
 		TestItem{"-S -t target --mode mode -v", nil},
 		TestItem{"-S --target target --mode mode -v", nil},
 		TestItem{"-S --target target --mode mode -v extra", ErrSwitch},
-		TestItem{"-S --target target --mode mode -v -v", ErrDupKey},
-		TestItem{"-S --target target --mode mode -v --target target", ErrDupKey},
-		TestItem{"-S --target target --mode mode -v --mode mode", ErrDupKey},
+		TestItem{"-S --target target --mode mode -v -v", ErrDuplicate},
+		TestItem{"-S --target target --mode mode -v --target target", ErrDuplicate},
+		TestItem{"-S --target target --mode mode -v --mode mode", ErrDuplicate},
 		TestItem{"-Svi --mode mode --target target", nil},
 		TestItem{"-Plc", nil},
-		TestItem{"-Dcb", ErrExcl},
+		TestItem{"-Dcb", ErrExclusive},
 		TestItem{"-Svt target -m mode", nil},
 		TestItem{"-Svt target -m", ErrReqVal},
 		TestItem{"-Svm mode --target", ErrReqVal},
 		TestItem{"-Svm --?", ErrRequired},
 		TestItem{"-Sv --mode any --target best", nil},
 		TestItem{"-Sv --mode --? --target --!", nil},
-		TestItem{"-Sib", ErrExcl},
-		TestItem{"-S -i -b", ErrExcl},
+		TestItem{"-Sib", ErrExclusive},
+		TestItem{"-S -i -b", ErrExclusive},
 	}
 
 	for i := 0; i < len(TestItems); i++ {
 		err := flag.Parse(strings.Split(TestItems[i].Args, " "))
-		fmt.Printf("Testing '%s'\n", TestItems[i].Args)
+		// fmt.Printf("Testing '%s'\n", TestItems[i].Args)
 		if !errors.Is(err, TestItems[i].ExpectedErr) {
 			log.Fatalf("'%s': expected '%v', got '%v'", TestItems[i].Args, TestItems[i].ExpectedErr, err)
 		}
-		fmt.Printf("Result '%v'\n", err)
-		fmt.Printf("Parsed: '%#v'\n", flag.Parsed())
-		fmt.Println()
+		/*
+			fmt.Printf("Result '%v'\n", err)
+			fmt.Printf("Parsed: '%#v'\n", flag.Parsed())
+			fmt.Println()
+		*/
 	}
-	fmt.Println(flag.Print())
+	// fmt.Println(flag.Print())
+
+}
+
+func TestStruct(t *testing.T) {
+
+	type (
+		Sub struct {
+			Name string `json:"name"`
+		}
+
+		Main struct {
+			Name string
+			Sub  *Sub `json:"sub"`
+		}
+	)
+
+	args := "--name NameA --sub --name NameB"
+
+	main := &Main{Sub: &Sub{}}
+	flags, err := FromStruct(main, strings.Split(args, " "))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(flags.Print())
+
+	fmt.Println("Before:", args)
 
 }
