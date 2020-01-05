@@ -6,7 +6,6 @@ package flagex
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"strings"
 	"testing"
@@ -394,31 +393,5 @@ func TestMux(t *testing.T) {
 		*/
 	}
 	// fmt.Println(flag.Print())
-
-}
-
-func TestStruct(t *testing.T) {
-
-	type (
-		Sub struct {
-			Name string `json:"name"`
-		}
-
-		Main struct {
-			Name string
-			Sub  *Sub `json:"sub"`
-		}
-	)
-
-	args := "--name NameA --sub --name NameB"
-
-	main := &Main{Sub: &Sub{}}
-	flags, err := FromStruct(main, strings.Split(args, " "))
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println(flags.Print())
-
-	fmt.Println("Before:", args)
 
 }

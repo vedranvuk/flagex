@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"reflect"
 	"strings"
 	"text/tabwriter"
 
@@ -455,51 +454,4 @@ func (f *Flags) Parsed() map[interface{}]interface{} {
 		}
 	}
 	return ret
-}
-
-func makeflags(flags *Flags, v reflect.Value) (*Flags, error) {
-
-	for i := 0; i < v.NumField(); i++ {
-		fv := reflect.Indirect(v.Field(i))
-		key := strings.ToLower(v.Type().Field(i).Name)
-		short := string(key[0])
-		paramhelp := strings.ToLower(v.Field(i).Type().Name())
-		if fv.Kind() == reflect.Struct {
-			new, err := makeflags(New(), v.Field(i).Elem())
-			if err != nil {
-				return nil, err
-			}
-			if err := flags.Sub(key, short, fmt.Sprintf("Submenu '%s'", key), new); err != nil {
-				return nil, err
-			}
-		}
-		kind := KindOptional
-		if fv.Kind() == reflect.String {
-			if err := flags.Def(key, short, fmt.Sprintf("Field '%s' (%s)", key, paramhelp), paramhelp, "", kind); err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	return flags, nil
-}
-
-// ToStruct parses args to a struct.
-func FromStruct(v interface{}, args []string) (*Flags, error) {
-	rv := reflect.Indirect(reflect.ValueOf(v))
-	if !rv.IsValid() {
-		return nil, ErrParam
-	}
-	if rv.Kind() != reflect.Struct {
-		return nil, ErrParam
-	}
-	flags, err := makeflags(New(), rv)
-	if err != nil {
-		return nil, err
-	}
-	fmt.Println(flags.Print())
-	if err := flags.Parse(args); err != nil {
-		return nil, err
-	}
-	return flags, nil
 }
