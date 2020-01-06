@@ -9,8 +9,14 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/vedranvuk/errorex"
 	"github.com/vedranvuk/flagex"
 	"github.com/vedranvuk/reflectex"
+)
+
+var (
+	ErrReflag  = errorex.New("reflag")
+	ErrConvert = ErrReflag.WrapFormat("error converting arg '%s' value '%s' to '%s'")
 )
 
 func makeflags(flags *flagex.Flags, v reflect.Value) (*flagex.Flags, error) {
@@ -32,6 +38,11 @@ func makeflags(flags *flagex.Flags, v reflect.Value) (*flagex.Flags, error) {
 		}
 		kind := flagex.KindOptional
 		if fv.Kind() == reflect.String {
+			if err := flags.Def(key, short, help, paramhelp, "", kind); err != nil {
+				return nil, err
+			}
+		}
+		if fv.Kind() == reflect.Int {
 			if err := flags.Def(key, short, help, paramhelp, "", kind); err != nil {
 				return nil, err
 			}
@@ -72,16 +83,15 @@ func applyflags(flags *flagex.Flags, v reflect.Value) (*flagex.Flags, error) {
 				val, err = reflectex.StringToValue(flag.Value(), fv)
 			}
 			if err != nil {
-				return nil, err
+				return nil, ErrConvert.CauseArgs(err, key, flag.Value(), fv.Type().Name())
 			}
 			fv.Set(val)
 		}
 	}
-
 	return flags, nil
 }
 
-// ToStruct parses args to a struct.
+// ToStruct parses args to a struct v.
 func FromStruct(v interface{}, args []string) (*flagex.Flags, error) {
 	rv := reflect.Indirect(reflect.ValueOf(v))
 	if !rv.IsValid() {

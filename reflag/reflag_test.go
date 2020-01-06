@@ -22,11 +22,12 @@ func TestStruct(t *testing.T) {
 		Main struct {
 			Name  string
 			EMail string
+			Age   int
 			Sub   *Sub `json:"sub"`
 		}
 	)
 
-	args := "--name NameA --sub --name NameB --admin"
+	args := "--name NameA --age alot --sub --name NameB --admin"
 
 	main := &Main{Sub: &Sub{}}
 	spew.Printf("Before:%+v\n", main)

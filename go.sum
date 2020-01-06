@@ -2,5 +2,3 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/vedranvuk/errorex v0.1.0 h1:ntMvhN/okdQzBrpDP07mSMxNAy1vARo9/7FSbV91IVM=
 github.com/vedranvuk/errorex v0.1.0/go.mod h1:1wXcLXxO4tmwPPFjcAflvNC+Dd8xLG2k+f3CT9BoaLA=
-github.com/vedranvuk/reflectex v0.0.0-20200105225840-0cd4e605212d h1:kGFx1ZR1eZXnXG/JC+JIq6/G/AuXwT9k2MIStTHWoHQ=
-github.com/vedranvuk/reflectex v0.0.0-20200105225840-0cd4e605212d/go.mod h1:9hug50B0En8vHWosEM3n5sRaBGXKdb78K03LMbY5uV0=
