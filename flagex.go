@@ -338,6 +338,9 @@ func (f *Flags) Parse(args []string) error {
 			if flag.Kind() == KindSwitch {
 				return ErrSwitch.WithArgs(flag.Key())
 			}
+			if flag.Sub() != nil {
+				return flag.sub.Parse(args[i:])
+			}
 			if err := f.consume(flag.Key(), arg); err != nil {
 				return err
 			}

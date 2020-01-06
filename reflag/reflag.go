@@ -20,6 +20,7 @@ var (
 )
 
 func makeflags(flags *flagex.Flags, v reflect.Value) (*flagex.Flags, error) {
+	v = reflect.Indirect(v)
 
 	for i := 0; i < v.NumField(); i++ {
 		fv := reflect.Indirect(v.Field(i))
@@ -28,7 +29,7 @@ func makeflags(flags *flagex.Flags, v reflect.Value) (*flagex.Flags, error) {
 		paramhelp := strings.ToLower(v.Field(i).Type().Name())
 		help := v.Type().Field(i).Name
 		if fv.Kind() == reflect.Struct {
-			new, err := makeflags(flagex.New(), v.Field(i).Elem())
+			new, err := makeflags(flagex.New(), v.Field(i))
 			if err != nil {
 				return nil, err
 			}

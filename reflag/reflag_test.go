@@ -9,14 +9,21 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestStruct(t *testing.T) {
 
 	type (
+		Detail struct {
+			Time time.Time
+			User string
+		}
+
 		Sub struct {
-			Name  string `json:"name"`
-			Admin bool   `json:"admin"`
+			Name   string `json:"name"`
+			Admin  bool   `json:"admin"`
+			Detail *Detail
 		}
 
 		Main struct {
@@ -27,9 +34,9 @@ func TestStruct(t *testing.T) {
 		}
 	)
 
-	args := "--name NameA --age alot --sub --name NameB --admin"
+	args := "--name NameA --email me@net.com --age 64 --sub --name NameB --admin --detail --user mirko"
 
-	main := &Main{Sub: &Sub{}}
+	main := &Main{Sub: &Sub{Detail: &Detail{}}}
 	spew.Printf("Before:%+v\n", main)
 	flags, err := FromStruct(main, strings.Split(args, " "))
 	if err != nil {
