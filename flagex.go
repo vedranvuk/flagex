@@ -239,25 +239,47 @@ func (f *Flags) reset() {
 
 // matchcombined matches a possibly multilevel combined key against defined Flags.
 func (f *Flags) matchcombined(arg string) bool {
-	if len(arg) < 2 {
-		return false
-	}
+
 	var flag *Flag
 	var ok bool
-	for len(arg) > 0 {
-		_, ok = f.Short(string(arg[0]))
+	for i := 0; i < len(arg); i++ {
+		flag, ok = f.Short(string(arg[i]))
 		if ok {
-			if flag != nil && flag.sub != nil {
-				if len(arg) == 1 {
+			if flag.sub != nil {
+				if i == len(arg)-1 {
 					return false
 				}
-				return flag.sub.matchcombined(arg[1:])
+				return flag.sub.matchcombined(arg[i+1:])
 			}
-			return true
+			continue
 		}
-		break
+		return false
 	}
-	return false
+	return true
+
+	/*
+		// Single match per level.
+
+		if len(arg) < 2 {
+			return false
+		}
+		var flag *Flag
+		var ok bool
+		for len(arg) > 0 {
+			_, ok = f.Short(string(arg[0]))
+			if ok {
+				if flag != nil && flag.sub != nil {
+					if len(arg) == 1 {
+						return false
+					}
+					return flag.sub.matchcombined(arg[1:])
+				}
+				return true
+			}
+			break
+		}
+		return false
+	*/
 }
 
 // findflag finds a flag by key or shortkey from arg and
