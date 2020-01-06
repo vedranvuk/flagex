@@ -6,10 +6,14 @@ package flagex
 
 import (
 	"errors"
+	"fmt"
 	"log"
+	"os"
 	"strings"
 	"testing"
 )
+
+var Verbose = false
 
 func TestFlags(t *testing.T) {
 
@@ -382,25 +386,29 @@ func TestMux(t *testing.T) {
 
 	for i := 0; i < len(TestItems); i++ {
 		err := flag.Parse(strings.Split(TestItems[i].Args, " "))
-		// fmt.Printf("Testing '%s'\n", TestItems[i].Args)
+		if Verbose {
+			fmt.Printf("Testing: '%s'\n", TestItems[i].Args)
+		}
 		if !errors.Is(err, TestItems[i].ExpectedErr) {
 			log.Fatalf("'%s': expected '%v', got '%v'", TestItems[i].Args, TestItems[i].ExpectedErr, err)
 		}
-		/*
-			fmt.Printf("Result '%v'\n", err)
-			fmt.Printf("Parsed: '%#v'\n", flag.Parsed())
+		if Verbose {
+			fmt.Printf("Result:  '%v'\n", err)
+			fmt.Printf("Parsed:  '%#v'\n", flag.Parsed())
 			fmt.Println()
-		*/
+		}
 	}
-	// fmt.Println(flag.Print())
+	if Verbose {
+		fmt.Println(flag.Print())
+	}
 
 }
 
-func BenchmarkFlags(b *testing.B) {
-	b.StopTimer()
-
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-
+func init() {
+	for _, v := range os.Args {
+		if strings.HasPrefix(v, "-test.v") {
+			Verbose = true
+			return
+		}
 	}
 }

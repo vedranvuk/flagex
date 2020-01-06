@@ -339,6 +339,7 @@ func (f *Flags) Parse(args []string) error {
 				return ErrSwitch.WithArgs(flag.Key())
 			}
 			if flag.Sub() != nil {
+				flag.parsed = true
 				return flag.sub.Parse(args[i:])
 			}
 			if err := f.consume(flag.Key(), arg); err != nil {
@@ -410,7 +411,7 @@ func (f *Flags) Parse(args []string) error {
 
 // printindent prints flags to w indented with indent.
 func (f *Flags) printindent(w io.Writer, indent string) {
-	fmt.Fprintf(w, "%s[Short]\t[Key]\t[Help]\t\n", indent)
+	// fmt.Fprintf(w, "%s[Short]\t[Key]\t[Help]\t\n", indent)
 	for _, flag := range f.keys {
 		val := flag.Key()
 		if flag.paramhelp != "" {

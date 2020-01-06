@@ -6,6 +6,8 @@
 package reflag
 
 import (
+	"encoding"
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -15,50 +17,57 @@ import (
 )
 
 var (
-	ErrReflag  = errorex.New("reflag")
+	// ErrReflag is the base error from reflag package.
+	ErrReflag = errorex.New("reflag")
+	// ErrConvert is returned when an arg was not convertable to a value.
 	ErrConvert = ErrReflag.WrapFormat("error converting arg '%s' value '%s' to '%s'")
+	// ErrUnmarshal is returned when an arg was not unmarshalable to a value.
+	ErrUnmarshal = ErrReflag.WrapFormat("error unmarshaling arg '%s' value '%s' to '%s'")
 )
 
-func makeflags(flags *flagex.Flags, v reflect.Value) (*flagex.Flags, error) {
+// flagsFromStruct creates Flags from struct v.
+// Parsing is multilevel, root and v are initial flags and a struct.
+func flagsFromStruct(root *flagex.Flags, v reflect.Value) (*flagex.Flags, error) {
 	v = reflect.Indirect(v)
 
 	for i := 0; i < v.NumField(); i++ {
-		fv := reflect.Indirect(v.Field(i))
 		key := strings.ToLower(v.Type().Field(i).Name)
+		fv := reflect.Indirect(v.Field(i))
 		short := string(key[0])
 		paramhelp := strings.ToLower(v.Field(i).Type().Name())
 		help := v.Type().Field(i).Name
-		if fv.Kind() == reflect.Struct {
-			new, err := makeflags(flagex.New(), v.Field(i))
+		_, ok := (fv.Interface()).(encoding.TextMarshaler)
+		if ok {
+			if err := root.Def(key, short, help, paramhelp, "", flagex.KindOptional); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		switch fv.Kind() {
+		case reflect.Struct:
+			new, err := flagsFromStruct(flagex.New(), v.Field(i))
 			if err != nil {
 				return nil, err
 			}
-			if err := flags.Sub(key, short, help, new); err != nil {
+			if err := root.Sub(key, short, help, new); err != nil {
 				return nil, err
 			}
-		}
-		kind := flagex.KindOptional
-		if fv.Kind() == reflect.String {
-			if err := flags.Def(key, short, help, paramhelp, "", kind); err != nil {
+		case reflect.Bool:
+			if err := root.Switch(key, short, help); err != nil {
 				return nil, err
 			}
-		}
-		if fv.Kind() == reflect.Int {
-			if err := flags.Def(key, short, help, paramhelp, "", kind); err != nil {
-				return nil, err
-			}
-		}
-		if fv.Kind() == reflect.Bool {
-			if err := flags.Switch(key, short, help); err != nil {
+		default:
+			if err := root.Def(key, short, help, paramhelp, "", flagex.KindOptional); err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	return flags, nil
+	return root, nil
 }
 
-func applyflags(flags *flagex.Flags, v reflect.Value) (*flagex.Flags, error) {
+// structApplyFlags applies pared values in flags to struct v.
+func structApplyFlags(flags *flagex.Flags, v reflect.Value) (*flagex.Flags, error) {
 	for i := 0; i < v.NumField(); i++ {
 		fv := reflect.Indirect(v.Field(i))
 		key := strings.ToLower(v.Type().Field(i).Name)
@@ -69,8 +78,18 @@ func applyflags(flags *flagex.Flags, v reflect.Value) (*flagex.Flags, error) {
 		if !flag.Parsed() {
 			continue
 		}
+		if fv.Kind() == reflect.Ptr {
+			fmt.Println("empty ptr")
+		}
+		intf, ok := (fv.Addr().Interface()).(encoding.TextUnmarshaler)
+		if ok {
+			if err := intf.UnmarshalText([]byte(flag.Value())); err != nil {
+				return nil, ErrUnmarshal.CauseArgs(err, key, flag.Value(), fv.Type().Name())
+			}
+			continue
+		}
 		if fv.Kind() == reflect.Struct {
-			_, err := applyflags(flag.Sub(), fv)
+			_, err := structApplyFlags(flag.Sub(), fv)
 			if err != nil {
 				return nil, err
 			}
@@ -92,7 +111,7 @@ func applyflags(flags *flagex.Flags, v reflect.Value) (*flagex.Flags, error) {
 	return flags, nil
 }
 
-// ToStruct parses args to a struct v.
+// FromStruct creates Flags from struct v and returns it or an error.
 func FromStruct(v interface{}, args []string) (*flagex.Flags, error) {
 	rv := reflect.Indirect(reflect.ValueOf(v))
 	if !rv.IsValid() {
@@ -101,15 +120,36 @@ func FromStruct(v interface{}, args []string) (*flagex.Flags, error) {
 	if rv.Kind() != reflect.Struct {
 		return nil, flagex.ErrParam
 	}
-	flags, err := makeflags(flagex.New(), rv)
+	flags, err := flagsFromStruct(flagex.New(), rv)
+	if err != nil {
+		return nil, err
+	}
+	return flags, nil
+}
+
+// ToStruct applies Flags (prefferably gotten with FromStruct) to a
+// struct (preferrably one used with FromStruct).
+// Flags should be parsed.
+func ToStruct(v interface{}, flags *flagex.Flags) error {
+	_, err := structApplyFlags(flags, reflect.Indirect(reflect.ValueOf(v)))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Struct takes a struct v, creates flags from v's exported fields,
+// parses flags, sets v fields to parsed values then returns flags
+// or an error if one occured.
+func Struct(v interface{}, args []string) (*flagex.Flags, error) {
+	flags, err := FromStruct(v, args)
 	if err != nil {
 		return nil, err
 	}
 	if err := flags.Parse(args); err != nil {
 		return nil, err
 	}
-	flags, err = applyflags(flags, rv)
-	if err != nil {
+	if err := ToStruct(v, flags); err != nil {
 		return nil, err
 	}
 	return flags, nil
