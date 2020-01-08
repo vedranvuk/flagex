@@ -5,14 +5,21 @@
 package reflag
 
 import (
+	"errors"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
+	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/vedranvuk/flagex"
 )
 
+var Verbose bool = false
+
 func TestStruct(t *testing.T) {
+
+	return
 
 	type (
 		derivedint int64
@@ -46,13 +53,91 @@ func TestStruct(t *testing.T) {
 	args := "--BAAAAR NameA --email me@net.com --age 64 --length 42 --sub --FOOOO NameB --admin --detail --user mirko --time 2020-01-02T15:04:05Z --deep --surname wut"
 
 	main := &Main{Sub: &Sub{Detail: &Detail{}}}
-	spew.Printf("Before: %+v\n", main)
+	if Verbose {
+		fmt.Printf("Before: %+v\n", main)
+	}
 	flags, err := Struct(main, strings.Split(args, " "))
 	if err != nil {
 		t.Fatal(err)
 	}
-	spew.Printf("After:  %+v\n", main)
-	fmt.Println("Parsed:", flags.Parsed())
-	fmt.Println("Print:")
-	fmt.Println(flags.Print())
+	if Verbose {
+		fmt.Printf("After:  %+v\n", main)
+		fmt.Println("Parsed:", flags.Parsed())
+		fmt.Println("Print:")
+		fmt.Println(flags.Print())
+	}
+}
+
+func TestStruct2(t *testing.T) {
+
+	type Tagged struct {
+		FirstName string `json:"firstName,omitempty"`
+		LastName  string `json:"lastName"`
+		Nickname  string `foo:"kickme,omitempty"`
+	}
+
+	type Child struct {
+		*Tagged
+		Index int
+	}
+
+	type Root struct {
+		Child   Child
+		Verbose bool
+		Version bool
+	}
+
+	type Test struct {
+		Args     string
+		Expected error
+	}
+
+	newData := func() *Root {
+		return &Root{Child: Child{Tagged: &Tagged{"John", "Doe", "jd"}}}
+	}
+
+	tests := []Test{
+		Test{"", flagex.ErrArgs},
+		Test{"--verbose", nil},
+		Test{"-v", nil},
+		Test{"--version", nil},
+		Test{"--version --verbose", nil},
+		Test{"-v --version", nil},
+		Test{"-v ", nil},
+		Test{"-v -c -i 42", nil},
+		Test{"-vci 42", flagex.ErrNotSub},
+	}
+
+	var data *Root
+	var flags *flagex.Flags
+	var err error
+	for _, test := range tests {
+		if Verbose {
+			fmt.Printf("Parsing: '%s'\n", test.Args)
+		}
+		data = newData()
+		flags, err = Struct(data, strings.Split(test.Args, " "))
+		if !errors.Is(err, test.Expected) {
+			t.Fatalf("fail('%s'): want '%s', got '%v'\n", test.Args, test.Expected, err)
+		}
+		if Verbose {
+			if flags != nil {
+				fmt.Println("Parsed: ", flags.Parsed())
+				fmt.Println(flags.Print())
+			} else {
+				fmt.Println("Parsed: <no parse>")
+			}
+			fmt.Println()
+		}
+	}
+
+}
+
+func init() {
+	for _, v := range os.Args {
+		if strings.HasPrefix(v, "-test.v") {
+			Verbose = true
+			return
+		}
+	}
 }

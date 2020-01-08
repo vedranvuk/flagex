@@ -52,6 +52,9 @@ func flagsFromStruct(root *flagex.Flags, v reflect.Value) (*flagex.Flags, error)
 			key = fldtag
 		}
 		flagshort := string(key[0])
+		if _, ok := root.Short(flagshort); ok {
+			flagshort = ""
+		}
 
 		// fmt.Printf("Field: Name:'%s', Tag:'%s', Val:'%v', Short:'%s', Paramhelp:'%s', flaghelp:'%s', Key:'%s'\n",
 		// 	fldname, fldtag, fldval, flagshort, paramhelp, flaghelp, key)

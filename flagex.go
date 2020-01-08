@@ -39,8 +39,10 @@ var (
 	ErrSwitch = ErrFlag.WrapFormat("switch '%s' takes no params")
 	// ErrSub is returned when a sub switch was parsed with no args following it.
 	ErrSub = ErrFlag.WrapFormat("sub '%s' invoken with no params")
+	// ErrNotSub is returned when a non-sub switch is combined with other commands.
+	ErrNotSub = ErrFlag.WrapFormat("cannot combine key '%s', not a sub.")
 
-	ErrParam = ErrFlag.Wrap("invalid param")
+	ErrParam = ErrFlag.Wrap("invalid parameter")
 )
 
 // FlagKind specifies Flag kind.
@@ -239,7 +241,6 @@ func (f *Flags) reset() {
 
 // matchcombined matches a possibly multilevel combined key against defined Flags.
 func (f *Flags) matchcombined(arg string) bool {
-
 	var flag *Flag
 	var ok bool
 	for i := 0; i < len(arg); i++ {
@@ -333,12 +334,27 @@ func (f *Flags) Parse(args []string) error {
 			if !ok {
 				return ErrNotFound.WithArgs(saved)
 			}
-			if flag.Kind() == KindSwitch {
-				return ErrSwitch.WithArgs(flag.Key())
-			}
+			saved = strings.TrimPrefix(saved, "-")
+			comb := f.matchcombined(saved)
 			if flag.Sub() != nil {
 				flag.parsed = true
+				if !comb && i == len(args)-1 {
+					return ErrSub.WithArgs(flag.Key())
+				}
+				if comb {
+					a := strings.Split(saved[1:], "")
+					for i, v := range a {
+						a[i] = "-" + v
+					}
+					return flag.sub.Parse(append(a, args[i:]...))
+				}
 				return flag.sub.Parse(args[i:])
+			}
+			if flag.Kind() == KindSwitch {
+				if len(saved) > 1 {
+					return ErrNotSub.WithArgs(flag.Shortkey())
+				}
+				return ErrSwitch.WithArgs(flag.Key())
 			}
 			if err := f.consume(flag.Key(), arg); err != nil {
 				return err
@@ -387,6 +403,27 @@ func (f *Flags) Parse(args []string) error {
 		}
 		if flag.Kind() == KindRequired {
 			return ErrReqVal.WithArgs(saved)
+		}
+		saved = strings.TrimPrefix(saved, "-")
+		comb := f.matchcombined(saved)
+		if flag.Sub() != nil {
+			flag.parsed = true
+			if !comb {
+				return ErrSub.WithArgs(flag.Key())
+			}
+			if comb {
+				a := strings.Split(saved[1:], "")
+				for i, v := range a {
+					a[i] = "-" + v
+				}
+				return flag.sub.Parse(a)
+			}
+			return ErrSub.WithArgs(flag.Key())
+		}
+		if flag.Kind() == KindSwitch {
+			if comb && len(saved) > 1 {
+				return ErrNotSub.WithArgs(flag.Key())
+			}
 		}
 		if err := f.consume(flag.Key(), ""); err != nil {
 			return err
