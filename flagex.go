@@ -256,30 +256,6 @@ func (f *Flags) matchcombined(arg string) bool {
 		return false
 	}
 	return true
-
-	/*
-		// Single match per level.
-
-		if len(arg) < 2 {
-			return false
-		}
-		var flag *Flag
-		var ok bool
-		for len(arg) > 0 {
-			_, ok = f.Short(string(arg[0]))
-			if ok {
-				if flag != nil && flag.sub != nil {
-					if len(arg) == 1 {
-						return false
-					}
-					return flag.sub.matchcombined(arg[1:])
-				}
-				return true
-			}
-			break
-		}
-		return false
-	*/
 }
 
 // findflag finds a flag by key or shortkey from arg and

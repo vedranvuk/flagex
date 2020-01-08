@@ -15,7 +15,7 @@ import (
 func TestStruct(t *testing.T) {
 
 	type (
-		Derived int64
+		derivedint int64
 
 		Solid struct {
 			Surname string
@@ -28,22 +28,22 @@ func TestStruct(t *testing.T) {
 		}
 
 		Sub struct {
-			Nickname string
-			Admin    bool `json:"admin"`
+			Nickname string `json:"FOOOO"`
+			Admin    bool
 			Detail   *Detail
 		}
 
 		Main struct {
-			Name   string
+			Name   string `json:"BAAAAR"`
 			EMail  string
 			Age    int
-			Length Derived
+			Length derivedint
 			// Error  *int
-			Sub *Sub `json:"sub"`
+			Sub *Sub
 		}
 	)
 
-	args := "--name NameA --email me@net.com --age 64 --length 42 --sub --nickname NameB --admin --detail --user mirko --time 2020-01-02T15:04:05Z --deep --surname wut"
+	args := "--BAAAAR NameA --email me@net.com --age 64 --length 42 --sub --FOOOO NameB --admin --detail --user mirko --time 2020-01-02T15:04:05Z --deep --surname wut"
 
 	main := &Main{Sub: &Sub{Detail: &Detail{}}}
 	spew.Printf("Before: %+v\n", main)

@@ -23,41 +23,62 @@ var (
 	ErrConvert = ErrReflag.WrapFormat("error converting arg '%s' value '%s' to '%s'")
 	// ErrUnmarshal is returned when an arg was not unmarshalable to a value.
 	ErrUnmarshal = ErrReflag.WrapFormat("error unmarshaling arg '%s' value '%s' to '%s'")
+	// ErrNotFound is returned when applying to to a struct with a field not defined in flags.
+	ErrNotFound = ErrReflag.WrapFormat("no flags defined for field '%s', tag '%s'")
 )
+
+func parsetag(tag string) string {
+	a := strings.Split(tag, ",")
+	if len(a) > 0 {
+		return a[0]
+	}
+	return ""
+}
 
 // flagsFromStruct creates Flags from struct v.
 // Parsing is multilevel, root and v are initial flags and a struct.
 func flagsFromStruct(root *flagex.Flags, v reflect.Value) (*flagex.Flags, error) {
+
 	v = reflect.Indirect(v)
 
 	for i := 0; i < v.NumField(); i++ {
-		key := strings.ToLower(v.Type().Field(i).Name)
-		fv := reflect.Indirect(v.Field(i))
-		short := string(key[0])
+		fldname := strings.ToLower(v.Type().Field(i).Name)
+		fldtag := parsetag(v.Type().Field(i).Tag.Get("json"))
+		fldval := reflect.Indirect(v.Field(i))
 		paramhelp := strings.ToLower(v.Field(i).Type().Name())
-		help := v.Type().Field(i).Name
-		_, ok := (fv.Interface()).(encoding.TextMarshaler)
+		flaghelp := v.Type().Field(i).Name
+		key := fldname
+		if fldtag != "" {
+			key = fldtag
+		}
+		flagshort := string(key[0])
+
+		// fmt.Printf("Field: Name:'%s', Tag:'%s', Val:'%v', Short:'%s', Paramhelp:'%s', flaghelp:'%s', Key:'%s'\n",
+		// 	fldname, fldtag, fldval, flagshort, paramhelp, flaghelp, key)
+
+		_, ok := (fldval.Interface()).(encoding.TextMarshaler)
 		if ok {
-			if err := root.Def(key, short, help, paramhelp, "", flagex.KindOptional); err != nil {
+			if err := root.Def(key, flagshort, flaghelp, paramhelp, "", flagex.KindOptional); err != nil {
 				return nil, err
 			}
 			continue
 		}
-		switch fv.Kind() {
+
+		switch fldval.Kind() {
 		case reflect.Struct:
 			new, err := flagsFromStruct(flagex.New(), v.Field(i))
 			if err != nil {
 				return nil, err
 			}
-			if err := root.Sub(key, short, help, new); err != nil {
+			if err := root.Sub(key, flagshort, flaghelp, new); err != nil {
 				return nil, err
 			}
 		case reflect.Bool:
-			if err := root.Switch(key, short, help); err != nil {
+			if err := root.Switch(key, flagshort, flaghelp); err != nil {
 				return nil, err
 			}
 		default:
-			if err := root.Def(key, short, help, paramhelp, "", flagex.KindOptional); err != nil {
+			if err := root.Def(key, flagshort, flaghelp, paramhelp, "", flagex.KindOptional); err != nil {
 				return nil, err
 			}
 		}
@@ -68,50 +89,69 @@ func flagsFromStruct(root *flagex.Flags, v reflect.Value) (*flagex.Flags, error)
 
 // structApplyFlags applies pared values in flags to struct v.
 func structApplyFlags(flags *flagex.Flags, v reflect.Value) (*flagex.Flags, error) {
+
+	var flag *flagex.Flag
 	for i := 0; i < v.NumField(); i++ {
+
+		ok := false
 		fv := reflect.Indirect(v.Field(i))
-		key := strings.ToLower(v.Type().Field(i).Name)
-		flag, ok := flags.Key(key)
+		fldname := strings.ToLower(v.Type().Field(i).Name)
+		fldtag := parsetag(v.Type().Field(i).Tag.Get("json"))
+
+		if fldtag != "" {
+			flag, ok = flags.Key(fldtag)
+		}
 		if !ok {
-			panic("no key found")
+			flag, ok = flags.Key(fldname)
+		}
+		if !ok {
+			return nil, ErrNotFound.WithArgs(fldname, fldtag)
 		}
 		if !flag.Parsed() {
 			continue
 		}
+
+		// fmt.Printf("ApplyField: Name'%s', Tag:'%s', FKey:'%s', Parsed:'%t', Value:'%s'\n ",
+		// 	fldname, fldtag, flag.Key(), flag.Parsed(), flag.Value())
+
 		if fv.Kind() == reflect.Ptr {
-			fmt.Println("empty ptr")
+			fmt.Println("don't panic")
 		}
+
 		intf, ok := (fv.Addr().Interface()).(encoding.TextUnmarshaler)
 		if ok {
 			if err := intf.UnmarshalText([]byte(flag.Value())); err != nil {
-				return nil, ErrUnmarshal.CauseArgs(err, key, flag.Value(), fv.Type().Name())
+				return nil, ErrUnmarshal.CauseArgs(err, fldname, flag.Value(), fv.Type().Name())
 			}
 			continue
 		}
+
 		if fv.Kind() == reflect.Struct {
 			_, err := structApplyFlags(flag.Sub(), fv)
 			if err != nil {
 				return nil, err
 			}
 		}
-		var val reflect.Value
+		val := reflect.Indirect(reflect.New(fv.Type()))
 		var err error
 		if flag.Sub() == nil {
 			if flag.Kind() == flagex.KindSwitch {
-				val, err = reflectex.StringToValue("true", fv)
+				err = reflectex.StringToValue("true", val)
 			} else {
-				val, err = reflectex.StringToValue(flag.Value(), fv)
+				err = reflectex.StringToValue(flag.Value(), val)
 			}
 			if err != nil {
-				return nil, ErrConvert.CauseArgs(err, key, flag.Value(), fv.Type().Name())
+				return nil, ErrConvert.CauseArgs(err, fldname, flag.Value(), fv.Type().Name())
 			}
 			fv.Set(val)
 		}
 	}
+
 	return flags, nil
 }
 
 // FromStruct creates Flags from struct v and returns it or an error.
+// See Struct for more details.
 func FromStruct(v interface{}, args []string) (*flagex.Flags, error) {
 	rv := reflect.Indirect(reflect.ValueOf(v))
 	if !rv.IsValid() {
@@ -129,7 +169,7 @@ func FromStruct(v interface{}, args []string) (*flagex.Flags, error) {
 
 // ToStruct applies Flags (prefferably gotten with FromStruct) to a
 // struct (preferrably one used with FromStruct).
-// Flags should be parsed.
+// Flags should be Parse()'d with no error. See Struct for more details.
 func ToStruct(v interface{}, flags *flagex.Flags) error {
 	_, err := structApplyFlags(flags, reflect.Indirect(reflect.ValueOf(v)))
 	if err != nil {
@@ -139,8 +179,27 @@ func ToStruct(v interface{}, flags *flagex.Flags) error {
 }
 
 // Struct takes a struct v, creates flags from v's exported fields,
-// parses flags, sets v fields to parsed values then returns flags
-// or an error if one occured.
+// parses flags from args, sets v fields values to parsed values then
+// returns flags or an error if one occured.
+//
+// Struct v can have nested structs but any pointer types inside at any
+// level must have been allocated prior to this call. It makes sense to
+// allocate v fully, pass it to Struct() to have any field values changed
+// by parsing args then to check v's values. To check if a field was
+// changed use flags's Parsed() function.
+//
+// Struct prefers json tags from v's Fields to specify defined flag names.
+// If none, field names are lowercased and defined in flags as such.
+// First letter of derived key is used for shortkey, until uniques are
+// exhausted.
+// Shortkey definitions can differ in Struct calls if there would be
+// duplicates due to key names because of the random nature of go's map
+// iteration.
+// All unparsed fields are always ommitted when setting field values.
+//
+// Syntax for specifying array, slice or map values is described by
+// StringToInterface function from reflectex which this function uses to
+// convert string values to v's field values.
 func Struct(v interface{}, args []string) (*flagex.Flags, error) {
 	flags, err := FromStruct(v, args)
 	if err != nil {
