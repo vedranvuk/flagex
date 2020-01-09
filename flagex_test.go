@@ -17,8 +17,6 @@ var Verbose = false
 
 func TestFlags(t *testing.T) {
 
-	return
-
 	var (
 		Args = []string{
 			"--config",
@@ -388,6 +386,12 @@ func TestMux(t *testing.T) {
 		TestItem{"-vSi", ErrNotSub},
 		TestItem{"-v -Sit target -m mode", nil},
 		TestItem{"-v -Si -t target -m mode", nil},
+		TestItem{"-PDS", ErrNotFound},
+		TestItem{"-PSD", ErrNotFound},
+		TestItem{"-SPD", ErrNotFound},
+		TestItem{"-SDP", ErrNotFound},
+		TestItem{"-DSP", ErrNotFound},
+		TestItem{"-DPS", ErrNotFound},
 	}
 
 	for i := 0; i < len(TestItems); i++ {
@@ -400,7 +404,7 @@ func TestMux(t *testing.T) {
 		}
 		if Verbose {
 			fmt.Printf("Result:  '%v'\n", err)
-			fmt.Printf("Parsed:  '%#v'\n", flag.Parsed())
+			fmt.Printf("Parsed:  '%#v'\n", flag.ParseMap())
 			fmt.Println()
 		}
 	}

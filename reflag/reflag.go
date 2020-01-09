@@ -25,6 +25,8 @@ var (
 	ErrUnmarshal = ErrReflag.WrapFormat("error unmarshaling arg '%s' value '%s' to '%s'")
 	// ErrNotFound is returned when applying to to a struct with a field not defined in flags.
 	ErrNotFound = ErrReflag.WrapFormat("no flags defined for field '%s', tag '%s'")
+	// ErrParam is returned when an invalid parameter is encountered.
+	ErrParam = ErrReflag.Wrap("invalid parameter")
 )
 
 func parsetag(tag string) string {
@@ -158,10 +160,10 @@ func structApplyFlags(flags *flagex.Flags, v reflect.Value) (*flagex.Flags, erro
 func FromStruct(v interface{}, args []string) (*flagex.Flags, error) {
 	rv := reflect.Indirect(reflect.ValueOf(v))
 	if !rv.IsValid() {
-		return nil, flagex.ErrParam
+		return nil, ErrParam
 	}
 	if rv.Kind() != reflect.Struct {
-		return nil, flagex.ErrParam
+		return nil, ErrParam
 	}
 	flags, err := flagsFromStruct(flagex.New(), rv)
 	if err != nil {

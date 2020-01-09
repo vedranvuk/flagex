@@ -41,8 +41,6 @@ var (
 	ErrSub = ErrFlag.WrapFormat("sub '%s' invoken with no params")
 	// ErrNotSub is returned when a non-sub switch is combined with other commands.
 	ErrNotSub = ErrFlag.WrapFormat("cannot combine key '%s', not a sub.")
-
-	ErrParam = ErrFlag.Wrap("invalid parameter")
 )
 
 // FlagKind specifies Flag kind.
@@ -125,11 +123,27 @@ func (f *Flag) Value() string {
 	return f.value
 }
 
-// Flags defines a set of unique flags.
+// SetHelp sets flag's help text.
+func (f *Flag) SetHelp(help string) {
+	f.help = help
+}
+
+// SetParamHelp sets flag's param help text.
+func (f *Flag) SetParamHelp(help string) {
+	f.paramhelp = help
+}
+
+// SetParamHelp sets flag's default value.
+func (f *Flag) SetDefault(defval string) {
+	f.defval = defval
+}
+
+// Flags holds a set of unique flags.
 type Flags struct {
-	keys  map[string]*Flag
-	short map[string]string
-	last  string
+	keys   map[string]*Flag
+	short  map[string]string
+	last   string
+	parsed bool
 }
 
 // New creates a new Flags instance.
@@ -227,7 +241,7 @@ func (f *Flags) Short(shortkey string) (flag *Flag, truth bool) {
 	return f.Key(f.short[shortkey])
 }
 
-// reset resets values and parsed states to self.
+// reset resets values and parsed states of self and any subs.
 func (f *Flags) reset() {
 	for _, flag := range f.keys {
 		flag.parsed = false
@@ -237,9 +251,14 @@ func (f *Flags) reset() {
 			flag.sub.reset()
 		}
 	}
+	f.last = ""
+	f.parsed = false
 }
 
 // matchcombined matches a possibly multilevel combined key against defined Flags.
+// It does so by matching each consecutive char in arg with a defined shortkey.
+// If no defined flag under current shortkey, checks for a match in a sub, if any.
+// Returns true if whole arg was matched, no matter its length and sub span.
 func (f *Flags) matchcombined(arg string) bool {
 	var flag *Flag
 	var ok bool
@@ -310,12 +329,21 @@ func (f *Flags) consume(key, value string) error {
 	return nil
 }
 
+// splitcombined splits combined shortkeys into multiple shortkeys.
+func splitcombined(arg string) []string {
+	a := strings.Split(arg, "")
+	for i := 0; i < len(a); i++ {
+		a[i] = "-" + a[i]
+	}
+	return a
+}
+
 // Parse parses specified args.
 func (f *Flags) Parse(args []string) error {
 	f.last = strings.Join(args, " ")
 	f.reset()
 	var flag *Flag
-	var ok bool
+	var ok, comb bool
 	var saved string
 	var arg string
 	for i := 0; i < len(args); i++ {
@@ -335,18 +363,14 @@ func (f *Flags) Parse(args []string) error {
 				return ErrNotFound.WithArgs(saved)
 			}
 			saved = strings.TrimPrefix(saved, "-")
-			comb := f.matchcombined(saved)
+			comb = f.matchcombined(saved)
 			if flag.Sub() != nil {
 				flag.parsed = true
 				if !comb && i == len(args)-1 {
 					return ErrSub.WithArgs(flag.Key())
 				}
 				if comb {
-					a := strings.Split(saved[1:], "")
-					for i, v := range a {
-						a[i] = "-" + v
-					}
-					return flag.sub.Parse(append(a, args[i:]...))
+					return flag.sub.Parse(append(splitcombined(saved[1:]), args[i:]...))
 				}
 				return flag.sub.Parse(args[i:])
 			}
@@ -367,16 +391,12 @@ func (f *Flags) Parse(args []string) error {
 			if flag.sub != nil {
 				flag.parsed = true
 				arg = strings.TrimPrefix(arg, "-")
-				comb := f.matchcombined(arg)
+				comb = f.matchcombined(arg)
 				if !comb && i == len(args)-1 {
 					return ErrSub.WithArgs(flag.Key())
 				}
 				if comb {
-					a := strings.Split(arg[1:], "")
-					for i, v := range a {
-						a[i] = "-" + v
-					}
-					return flag.sub.Parse(append(a, args[i+1:]...))
+					return flag.sub.Parse(append(splitcombined(arg[1:]), args[i+1:]...))
 				}
 				return flag.sub.Parse(args[i+1:])
 			}
@@ -396,6 +416,8 @@ func (f *Flags) Parse(args []string) error {
 		}
 		saved = arg
 	}
+
+	// Check remaining saved arg.
 	if saved != "" {
 		flag, ok := f.findflag(saved)
 		if !ok {
@@ -405,20 +427,13 @@ func (f *Flags) Parse(args []string) error {
 			return ErrReqVal.WithArgs(saved)
 		}
 		saved = strings.TrimPrefix(saved, "-")
-		comb := f.matchcombined(saved)
+		comb = f.matchcombined(saved)
 		if flag.Sub() != nil {
 			flag.parsed = true
 			if !comb {
 				return ErrSub.WithArgs(flag.Key())
 			}
-			if comb {
-				a := strings.Split(saved[1:], "")
-				for i, v := range a {
-					a[i] = "-" + v
-				}
-				return flag.sub.Parse(a)
-			}
-			return ErrSub.WithArgs(flag.Key())
+			return flag.sub.Parse(splitcombined(saved[1:]))
 		}
 		if flag.Kind() == KindSwitch {
 			if comb && len(saved) > 1 {
@@ -429,6 +444,8 @@ func (f *Flags) Parse(args []string) error {
 			return err
 		}
 	}
+
+	// Check if required and any parsed.
 	noparse := true
 	for _, flag = range f.keys {
 		if flag.Kind() == KindRequired && !flag.Parsed() {
@@ -441,6 +458,7 @@ func (f *Flags) Parse(args []string) error {
 	if noparse {
 		return ErrArgs
 	}
+	f.parsed = true
 	return nil
 }
 
@@ -472,11 +490,11 @@ func (f *Flags) Print() string {
 	return string(buf.Bytes())
 }
 
-// Parsed returns a map of parsed Flag key:value pairs.
+// ParseMap returns a map of parsed Flag key:value pairs.
 // Sub will return a map, Flags may return a string if parsed or
-// nil if not parsed. Parsed returns whichever args were parsed
-// at last Parse. Parsed is as valid as what Parse returned.
-func (f *Flags) Parsed() map[interface{}]interface{} {
+// nil if not parsed. ParseMap returns whichever args were parsed
+// at last Parse. ParseMap is as valid as what Parse returned.
+func (f *Flags) ParseMap() map[interface{}]interface{} {
 	ret := make(map[interface{}]interface{})
 	for kk, kv := range f.keys {
 		if kv.Parsed() {
@@ -485,7 +503,7 @@ func (f *Flags) Parsed() map[interface{}]interface{} {
 				if !ok {
 					ret[kk] = make(map[interface{}]interface{})
 				}
-				ret[kk] = kv.sub.Parsed()
+				ret[kk] = kv.sub.ParseMap()
 				continue
 			}
 			if kv.ParsedVal() {
@@ -496,4 +514,9 @@ func (f *Flags) Parsed() map[interface{}]interface{} {
 		}
 	}
 	return ret
+}
+
+// Parsed returns if FLags were parsed with no error.
+func (f *Flags) Parsed() bool {
+	return f.parsed
 }
