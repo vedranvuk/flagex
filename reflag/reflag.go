@@ -157,7 +157,7 @@ func structApplyFlags(flags *flagex.Flags, v reflect.Value) (*flagex.Flags, erro
 
 // FromStruct creates Flags from struct v and returns it or an error.
 // See Struct for more details.
-func FromStruct(v interface{}, args []string) (*flagex.Flags, error) {
+func FromStruct(v interface{}) (*flagex.Flags, error) {
 	rv := reflect.Indirect(reflect.ValueOf(v))
 	if !rv.IsValid() {
 		return nil, ErrParam
@@ -206,7 +206,7 @@ func ToStruct(v interface{}, flags *flagex.Flags) error {
 // StringToInterface function from reflectex which this function uses to
 // convert string values to v's field values.
 func Struct(v interface{}, args []string) (*flagex.Flags, error) {
-	flags, err := FromStruct(v, args)
+	flags, err := FromStruct(v)
 	if err != nil {
 		return nil, err
 	}
