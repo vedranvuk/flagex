@@ -19,8 +19,6 @@ var Verbose bool = false
 
 func TestStruct(t *testing.T) {
 
-	return
-
 	type (
 		derivedint int64
 
@@ -71,8 +69,8 @@ func TestStruct(t *testing.T) {
 func TestStruct2(t *testing.T) {
 
 	type Tagged struct {
-		FirstName string `json:"firstName,omitempty"`
-		LastName  string `json:"lastName"`
+		FirstName string `json:"firstName,omitempty" reflag:"key=firstname,short=f,help=Your first name.,paramhelp=first name"`
+		LastName  string `json:"lastName" reflag:"help=Your last name,paramhelp=last name"`
 		Nickname  string `foo:"kickme,omitempty"`
 	}
 
@@ -84,7 +82,7 @@ func TestStruct2(t *testing.T) {
 	type Root struct {
 		Child   Child
 		Verbose bool
-		Version bool
+		Version bool `reflag:"short=V"`
 	}
 
 	type Test struct {
