@@ -328,7 +328,7 @@ func TestMux(t *testing.T) {
 	}
 
 	var TestItems = []TestItem{
-		TestItem{"", ErrArgs},
+		TestItem{"", ErrNoArgs},
 		TestItem{"-P", ErrSub},
 		TestItem{"-P -l", nil},
 		TestItem{"-P -e", nil},

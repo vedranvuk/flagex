@@ -19,8 +19,8 @@ import (
 var (
 	// ErrFlag is the base flagex error.
 	ErrFlag = errorex.New("flagex")
-	// ErrArgs is returned when Parse is called with empty arguments.
-	ErrArgs = ErrFlag.Wrap("no arguments")
+	// ErrNoArgs is returned when Parse is called with empty arguments.
+	ErrNoArgs = ErrFlag.Wrap("no arguments")
 	// ErrInvalid is returned when an invalid flag key is specified.
 	ErrInvalid = ErrFlag.WrapFormat("invalid key")
 	// ErrNotFound is returned when a non existent key is requested.
@@ -456,7 +456,7 @@ func (f *Flags) Parse(args []string) error {
 		}
 	}
 	if noparse {
-		return ErrArgs
+		return ErrNoArgs
 	}
 	f.parsed = true
 	return nil
