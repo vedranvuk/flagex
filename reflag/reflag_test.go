@@ -95,7 +95,7 @@ func TestStruct2(t *testing.T) {
 	}
 
 	tests := []Test{
-		Test{"", flagex.ErrArgs},
+		Test{"", flagex.ErrNoArgs},
 		Test{"--verbose", nil},
 		Test{"-v", nil},
 		Test{"--version", nil},
