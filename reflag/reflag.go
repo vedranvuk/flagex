@@ -157,7 +157,7 @@ func structApplyFlags(flags *flagex.Flags, v reflect.Value) (*flagex.Flags, erro
 		key, _, _, _ := flagParamsFromField(v.Type().Field(i))
 		flag, ok := flags.Key(key)
 		if !ok {
-			return nil, ErrNotFound.WithArgs(key)
+			return nil, ErrNotFound.WrapArgs(key)
 		}
 		if !flag.Parsed() {
 			continue
@@ -171,7 +171,7 @@ func structApplyFlags(flags *flagex.Flags, v reflect.Value) (*flagex.Flags, erro
 		intf, ok := (fldval.Addr().Interface()).(encoding.TextUnmarshaler)
 		if ok {
 			if err := intf.UnmarshalText([]byte(flag.Value())); err != nil {
-				return nil, ErrUnmarshal.CauseArgs(err, key, flag.Value(), fldval.Type().Name())
+				return nil, ErrUnmarshal.WrapCauseArgs(err, key, flag.Value(), fldval.Type().Name())
 			}
 			continue
 		}
@@ -191,7 +191,7 @@ func structApplyFlags(flags *flagex.Flags, v reflect.Value) (*flagex.Flags, erro
 				err = reflectex.StringToValue(flag.Value(), val)
 			}
 			if err != nil {
-				return nil, ErrConvert.CauseArgs(err, key, flag.Value(), fldval.Type().Name())
+				return nil, ErrConvert.WrapCauseArgs(err, key, flag.Value(), fldval.Type().Name())
 			}
 			fldval.Set(val)
 		}

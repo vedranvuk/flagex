@@ -160,10 +160,10 @@ func (f *Flags) def(key, shortkey, help, paramhelp, defval string, typ FlagKind)
 		return nil, ErrInvalid
 	}
 	if _, ok := f.keys[key]; ok {
-		return nil, ErrDuplicate.WithArgs(key)
+		return nil, ErrDuplicate.WrapArgs(key)
 	}
 	if _, ok := f.short[shortkey]; shortkey != "" && ok {
-		return nil, ErrDupShort.WithArgs(shortkey)
+		return nil, ErrDupShort.WrapArgs(shortkey)
 	}
 	flag := &Flag{key, shortkey, help, paramhelp, defval, typ, nil, false, false, false, ""}
 	f.keys[key] = flag
@@ -223,7 +223,7 @@ func (f *Flags) Exclusive(keys ...string) error {
 	for _, key := range keys {
 		flag, ok := f.Key(key)
 		if !ok {
-			return ErrNotFound.WithArgs(key)
+			return ErrNotFound.WrapArgs(key)
 		}
 		flag.excl = true
 	}
@@ -260,6 +260,9 @@ func (f *Flags) reset() {
 // If no defined flag under current shortkey, checks for a match in a sub, if any.
 // Returns true if whole arg was matched, no matter its length and sub span.
 func (f *Flags) matchcombined(arg string) bool {
+	if arg == "" {
+		return false
+	}
 	var flag *Flag
 	var ok bool
 	for i := 0; i < len(arg); i++ {
@@ -309,15 +312,15 @@ func (f *Flags) consume(key, value string) error {
 
 	flag, ok := f.keys[key]
 	if !ok {
-		return ErrNotFound.WithArgs(key)
+		return ErrNotFound.WrapArgs(key)
 	}
 	if flag.Parsed() {
-		return ErrDuplicate.WithArgs(key)
+		return ErrDuplicate.WrapArgs(key)
 	}
 	if flag.Excl() {
 		for _, v := range f.keys {
 			if v.Parsed() && v.Excl() {
-				return ErrExclusive.WithArgs(v.Key(), key)
+				return ErrExclusive.WrapArgs(v.Key(), key)
 			}
 		}
 	}
@@ -360,14 +363,14 @@ func (f *Flags) Parse(args []string) error {
 			}
 			flag, ok = f.findflag(saved)
 			if !ok {
-				return ErrNotFound.WithArgs(saved)
+				return ErrNotFound.WrapArgs(saved)
 			}
 			saved = strings.TrimPrefix(saved, "-")
 			comb = f.matchcombined(saved)
 			if flag.Sub() != nil {
 				flag.parsed = true
 				if !comb && i == len(args)-1 {
-					return ErrSub.WithArgs(flag.Key())
+					return ErrSub.WrapArgs(flag.Key())
 				}
 				if comb {
 					return flag.sub.Parse(append(splitcombined(saved[1:]), args[i:]...))
@@ -376,9 +379,9 @@ func (f *Flags) Parse(args []string) error {
 			}
 			if flag.Kind() == KindSwitch {
 				if len(saved) > 1 {
-					return ErrNotSub.WithArgs(flag.Shortkey())
+					return ErrNotSub.WrapArgs(flag.Shortkey())
 				}
-				return ErrSwitch.WithArgs(flag.Key())
+				return ErrSwitch.WrapArgs(flag.Key())
 			}
 			if err := f.consume(flag.Key(), arg); err != nil {
 				return err
@@ -393,7 +396,7 @@ func (f *Flags) Parse(args []string) error {
 				arg = strings.TrimPrefix(arg, "-")
 				comb = f.matchcombined(arg)
 				if !comb && i == len(args)-1 {
-					return ErrSub.WithArgs(flag.Key())
+					return ErrSub.WrapArgs(flag.Key())
 				}
 				if comb {
 					return flag.sub.Parse(append(splitcombined(arg[1:]), args[i+1:]...))
@@ -406,10 +409,10 @@ func (f *Flags) Parse(args []string) error {
 
 		flag, ok = f.findflag(saved)
 		if !ok {
-			return ErrNotFound.WithArgs(saved)
+			return ErrNotFound.WrapArgs(saved)
 		}
 		if flag.Kind() == KindRequired {
-			return ErrReqVal.WithArgs(saved)
+			return ErrReqVal.WrapArgs(saved)
 		}
 		if err := f.consume(flag.Key(), ""); err != nil {
 			return err
@@ -421,23 +424,23 @@ func (f *Flags) Parse(args []string) error {
 	if saved != "" {
 		flag, ok := f.findflag(saved)
 		if !ok {
-			return ErrNotFound.WithArgs(saved)
+			return ErrNotFound.WrapArgs(saved)
 		}
 		if flag.Kind() == KindRequired {
-			return ErrReqVal.WithArgs(saved)
+			return ErrReqVal.WrapArgs(saved)
 		}
 		saved = strings.TrimPrefix(saved, "-")
 		comb = f.matchcombined(saved)
 		if flag.Sub() != nil {
 			flag.parsed = true
 			if !comb {
-				return ErrSub.WithArgs(flag.Key())
+				return ErrSub.WrapArgs(flag.Key())
 			}
 			return flag.sub.Parse(splitcombined(saved[1:]))
 		}
 		if flag.Kind() == KindSwitch {
 			if comb && len(saved) > 1 {
-				return ErrNotSub.WithArgs(flag.Key())
+				return ErrNotSub.WrapArgs(flag.Key())
 			}
 		}
 		if err := f.consume(flag.Key(), ""); err != nil {
@@ -449,7 +452,7 @@ func (f *Flags) Parse(args []string) error {
 	noparse := true
 	for _, flag = range f.keys {
 		if flag.Kind() == KindRequired && !flag.Parsed() {
-			return ErrRequired.WithArgs(flag.Key())
+			return ErrRequired.WrapArgs(flag.Key())
 		}
 		if flag.Parsed() {
 			noparse = false
@@ -481,8 +484,8 @@ func (f *Flags) printindent(w io.Writer, indent string) {
 	}
 }
 
-// Print returns a printable string of Flags.
-func (f *Flags) Print() string {
+// String returns a printable string of Flags.
+func (f *Flags) String() string {
 	buf := bytes.NewBuffer(nil)
 	w := tabwriter.NewWriter(buf, 0, 0, 3, ' ', 0)
 	f.printindent(w, "")

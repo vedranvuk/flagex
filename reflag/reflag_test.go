@@ -62,7 +62,7 @@ func TestStruct(t *testing.T) {
 		fmt.Printf("After:  %+v\n", main)
 		fmt.Println("Parsed:", flags.ParseMap())
 		fmt.Println("Print:")
-		fmt.Println(flags.Print())
+		fmt.Println(flags.String())
 	}
 }
 
@@ -121,7 +121,7 @@ func TestStruct2(t *testing.T) {
 		if Verbose {
 			if flags != nil {
 				fmt.Println("Parsed: ", flags.ParseMap())
-				fmt.Println(flags.Print())
+				fmt.Println(flags.String())
 			} else {
 				fmt.Println("Parsed: <no parse>")
 			}

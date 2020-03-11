@@ -329,6 +329,8 @@ func TestMux(t *testing.T) {
 
 	var TestItems = []TestItem{
 		TestItem{"", ErrNoArgs},
+		TestItem{"-", ErrNotFound},
+		TestItem{"--", ErrNotFound},
 		TestItem{"-P", ErrSub},
 		TestItem{"-P -l", nil},
 		TestItem{"-P -e", nil},
@@ -409,7 +411,7 @@ func TestMux(t *testing.T) {
 		}
 	}
 	if Verbose {
-		fmt.Println(flag.Print())
+		fmt.Println(flag.String())
 	}
 
 }

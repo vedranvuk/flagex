@@ -8,3 +8,5 @@ require (
 )
 
 replace github.com/vedranvuk/reflectex => ../reflectex
+
+replace github.com/vedranvuk/errorex => ../errorex
