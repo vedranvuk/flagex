@@ -519,7 +519,20 @@ func (f *Flags) ParseMap() map[interface{}]interface{} {
 	return ret
 }
 
-// Parsed returns if FLags were parsed with no error.
-func (f *Flags) Parsed() bool {
+// Parsed returns if flags were parsed if no keys are specified.
+// If one or more keys are specified, returns if all of the specified
+// keys were specified and parsed.
+func (f *Flags) Parsed(keys ...string) bool {
+	if len(keys) > 0 {
+		for _, key := range keys {
+			if flag, ok := f.Key(key); ok {
+				if !flag.Parsed() {
+					return false
+				}
+				continue
+			}
+			return false
+		}
+	}
 	return f.parsed
 }

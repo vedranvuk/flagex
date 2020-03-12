@@ -413,7 +413,44 @@ func TestMux(t *testing.T) {
 	if Verbose {
 		fmt.Println(flag.String())
 	}
+}
 
+func TestParsed(t *testing.T) {
+	f := New()
+	f.Switch("a", "a", "a")
+	f.Switch("b", "b", "b")
+	f.Switch("c", "c", "c")
+
+	f.Parse([]string{"-a", "-b", "-c"})
+	if !f.Parsed() {
+		t.Fatal("parsed failed")
+	}
+
+	f.Parse([]string{"-a", "-c"})
+	if !f.Parsed("a", "c") {
+		t.Fatal("parsed failed")
+	}
+	if f.Parsed("b") {
+		t.Fatal("parsed failed")
+	}
+	if f.Parsed("x") {
+		t.Fatal("parsed failed")
+	}
+
+	f.Parse([]string{"-b"})
+	if !f.Parsed("b") {
+		t.Fatal("parsed failed")
+	}
+	if f.Parsed("a") {
+		t.Fatal("parsed failed")
+	}
+
+	if f.Parsed("c") {
+		t.Fatal("parsed failed")
+	}
+	if f.Parsed("a", "c") {
+		t.Fatal("parsed failed")
+	}
 }
 
 func init() {
