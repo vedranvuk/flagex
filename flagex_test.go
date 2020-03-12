@@ -453,6 +453,18 @@ func TestParsed(t *testing.T) {
 	}
 }
 
+func TestValue(t *testing.T) {
+	f := New()
+	f.Opt("test", "t", "a test switch", "string", "defval")
+	f.Parse([]string{"-t", "notdefval"})
+	if f.Value("test") != "notdefval" {
+		t.Fatal("Value() failed")
+	}
+	if f.Value("doesnotexist") != "" {
+		t.Fatal("Value() failed")
+	}
+}
+
 func init() {
 	for _, v := range os.Args {
 		if strings.HasPrefix(v, "-test.v") {

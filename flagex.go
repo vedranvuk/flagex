@@ -241,6 +241,16 @@ func (f *Flags) Short(shortkey string) (flag *Flag, truth bool) {
 	return f.Key(f.short[shortkey])
 }
 
+// Flags will return current value of a key, if found.
+// Returns an empty string otherwise.
+// Check before if key was parsed with Parsed().
+func (f *Flags) Value(key string) string {
+	if flag, exists := f.Key(key); exists {
+		return flag.Value()
+	}
+	return ""
+}
+
 // reset resets values and parsed states of self and any subs.
 func (f *Flags) reset() {
 	for _, flag := range f.keys {
