@@ -1,16 +1,8 @@
 module github.com/vedranvuk/flagex
 
-go 1.13
+go 1.14
 
 require (
 	github.com/vedranvuk/errorex v0.3.0
-	github.com/vedranvuk/reflectex v0.0.0-20200105225840-0cd4e605212d
+	github.com/vedranvuk/reflectex v0.0.0-20200113141824-10f2ae83a14e
 )
-
-replace github.com/vedranvuk/reflectex => ../reflectex
-
-replace github.com/vedranvuk/errorex => ../errorex
-
-replace github.com/vedranvuk/flagex => ../flagex
-
-replace github.com/vedranvuk/flagex/reflag => ../flagex/reflag
