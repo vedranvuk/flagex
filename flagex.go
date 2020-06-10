@@ -2,8 +2,7 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-// Package flaxeg implements a command line parser.
-// Not thread-safe.
+// Package flaxeg implements a command line parser. Not thread-safe.
 package flagex
 
 import (
