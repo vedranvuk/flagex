@@ -114,7 +114,7 @@ func (f *Flag) Parsed() bool { return f.parsed }
 // ParsedVal returns if FLag value was parsed.
 func (f *Flag) ParsedVal() bool { return f.parsedval }
 
-// Kind returns current FLag value.
+// Value returns current Flag value.
 func (f *Flag) Value() string {
 	if !f.parsed || !f.parsedval {
 		return f.defval
@@ -132,7 +132,7 @@ func (f *Flag) SetParamHelp(help string) {
 	f.paramhelp = help
 }
 
-// SetParamHelp sets flag's default value.
+// SetDefault sets flag's default value.
 func (f *Flag) SetDefault(defval string) {
 	f.defval = defval
 }
@@ -240,7 +240,7 @@ func (f *Flags) Short(shortkey string) (flag *Flag, truth bool) {
 	return f.Key(f.short[shortkey])
 }
 
-// Flags will return current value of a key, if found.
+// Value will return current value of a key, if found.
 // Returns an empty string otherwise.
 // Check before if key was parsed with Parsed().
 func (f *Flags) Value(key string) string {

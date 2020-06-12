@@ -134,7 +134,7 @@ func TestMux(t *testing.T) {
 	}
 
 	var PackageItems = []FlagItem{
-		FlagItem{
+		{
 			"list",
 			"l",
 			"list packages",
@@ -143,7 +143,7 @@ func TestMux(t *testing.T) {
 			KindOptional,
 			nil,
 		},
-		FlagItem{
+		{
 			"export",
 			"e",
 			"export package list",
@@ -152,7 +152,7 @@ func TestMux(t *testing.T) {
 			KindOptional,
 			nil,
 		},
-		FlagItem{
+		{
 			"csv",
 			"c",
 			"use csv format",
@@ -168,7 +168,7 @@ func TestMux(t *testing.T) {
 	}
 
 	var DatabaseItems = []FlagItem{
-		FlagItem{
+		{
 			"clean",
 			"c",
 			"clean database",
@@ -178,7 +178,7 @@ func TestMux(t *testing.T) {
 
 			nil,
 		},
-		FlagItem{
+		{
 			"backup",
 			"b",
 			"backup database",
@@ -195,7 +195,7 @@ func TestMux(t *testing.T) {
 	}
 
 	var SyncItems = []FlagItem{
-		FlagItem{
+		{
 			"install",
 			"i",
 			"install a package",
@@ -205,7 +205,7 @@ func TestMux(t *testing.T) {
 
 			nil,
 		},
-		FlagItem{
+		{
 			"uninstall",
 			"u",
 			"uninstall a package",
@@ -215,7 +215,7 @@ func TestMux(t *testing.T) {
 
 			nil,
 		},
-		FlagItem{
+		{
 			"update",
 			"b",
 			"update packages",
@@ -224,7 +224,7 @@ func TestMux(t *testing.T) {
 			KindOptional,
 			nil,
 		},
-		FlagItem{
+		{
 			"target",
 			"t",
 			"sync target (required)",
@@ -233,7 +233,7 @@ func TestMux(t *testing.T) {
 			KindRequired,
 			nil,
 		},
-		FlagItem{
+		{
 			"mode",
 			"m",
 			"sync mode",
@@ -242,7 +242,7 @@ func TestMux(t *testing.T) {
 			KindRequired,
 			nil,
 		},
-		FlagItem{
+		{
 			"verbose",
 			"v",
 			"verbose output",
@@ -278,7 +278,7 @@ func TestMux(t *testing.T) {
 	snc.Exclusive(SyncExcl...)
 
 	var RootItems = []FlagItem{
-		FlagItem{
+		{
 			"packages",
 			"P",
 			"work with packages",
@@ -287,7 +287,7 @@ func TestMux(t *testing.T) {
 			KindOptional,
 			pkg,
 		},
-		FlagItem{
+		{
 			"database",
 			"D",
 			"work with database",
@@ -296,7 +296,7 @@ func TestMux(t *testing.T) {
 			KindOptional,
 			dbs,
 		},
-		FlagItem{
+		{
 			"sync",
 			"S",
 			"package sync",
@@ -305,7 +305,7 @@ func TestMux(t *testing.T) {
 			KindOptional,
 			snc,
 		},
-		FlagItem{
+		{
 			"verbose",
 			"v",
 			"verbose output",
@@ -328,72 +328,72 @@ func TestMux(t *testing.T) {
 	}
 
 	var TestItems = []TestItem{
-		TestItem{"", ErrNoArgs},
-		TestItem{"-", ErrNotFound},
-		TestItem{"--", ErrNotFound},
-		TestItem{"-P", ErrSub},
-		TestItem{"-P -l", nil},
-		TestItem{"-P -e", nil},
-		TestItem{"-P -l -c", nil},
-		TestItem{"-P -e -c", nil},
-		TestItem{"-P -l -e", ErrExclusive},
-		TestItem{"-D -c", nil},
-		TestItem{"-D -b", nil},
-		TestItem{"-D -c -b", ErrExclusive},
-		TestItem{"-S -i", ErrRequired},
-		TestItem{"-S -t -i", ErrReqVal},
-		TestItem{"-S -t target -m improved -u", nil},
-		TestItem{"-S -t target -m new -i", nil},
-		TestItem{"-S -t target -b", ErrRequired},
-		TestItem{"-S -t target -i -u", ErrExclusive},
-		TestItem{"-S -t target -i -b", ErrExclusive},
-		TestItem{"-S -t target -u -b", ErrExclusive},
-		TestItem{"-S -t target -i -v extra", ErrSwitch},
-		TestItem{"-S -i -v -t", ErrReqVal},
-		TestItem{"-S -? -v", ErrNotFound},
-		TestItem{"-S -v -?", ErrSwitch},
-		TestItem{"-S -? -!", ErrNotFound},
-		TestItem{"-S", ErrSub},
-		TestItem{"-?", ErrNotFound},
-		TestItem{"-S -t target -m new -v -v", ErrDuplicate},
-		TestItem{"-S", ErrSub},
-		TestItem{"-S -S", ErrNotFound},
-		TestItem{"-S -S -S", ErrNotFound},
-		TestItem{"-? -?", ErrNotFound},
-		TestItem{"-S -!", ErrNotFound},
-		TestItem{"-S -t -v", ErrReqVal},
-		TestItem{"-S -m mode -v", ErrRequired},
-		TestItem{"-S -t -m mode -v", ErrReqVal},
-		TestItem{"-S -t target -v", ErrRequired},
-		TestItem{"-S -t target -m -v", ErrReqVal},
-		TestItem{"-S -t target -m mode -v", nil},
-		TestItem{"-S --target target -m mode -v", nil},
-		TestItem{"-S -t target --mode mode -v", nil},
-		TestItem{"-S --target target --mode mode -v", nil},
-		TestItem{"-S --target target --mode mode -v extra", ErrSwitch},
-		TestItem{"-S --target target --mode mode -v -v", ErrDuplicate},
-		TestItem{"-S --target target --mode mode -v --target target", ErrDuplicate},
-		TestItem{"-S --target target --mode mode -v --mode mode", ErrDuplicate},
-		TestItem{"-Svi --mode mode --target target", nil},
-		TestItem{"-Plc", nil},
-		TestItem{"-Dcb", ErrExclusive},
-		TestItem{"-Svt target -m mode", nil},
-		TestItem{"-Svt target -m", ErrReqVal},
-		TestItem{"-Svm mode --target", ErrReqVal},
-		TestItem{"-Svm --?", ErrRequired},
-		TestItem{"-Sv --mode any --target best", nil},
-		TestItem{"-Sv --mode --? --target --!", nil},
-		TestItem{"-Sib", ErrExclusive},
-		TestItem{"-S -i -b", ErrExclusive},
-		TestItem{"-vSi", ErrNotSub},
-		TestItem{"-v -Sit target -m mode", nil},
-		TestItem{"-v -Si -t target -m mode", nil},
-		TestItem{"-PDS", ErrNotFound},
-		TestItem{"-PSD", ErrNotFound},
-		TestItem{"-SPD", ErrNotFound},
-		TestItem{"-SDP", ErrNotFound},
-		TestItem{"-DSP", ErrNotFound},
-		TestItem{"-DPS", ErrNotFound},
+		{"", ErrNoArgs},
+		{"-", ErrNotFound},
+		{"--", ErrNotFound},
+		{"-P", ErrSub},
+		{"-P -l", nil},
+		{"-P -e", nil},
+		{"-P -l -c", nil},
+		{"-P -e -c", nil},
+		{"-P -l -e", ErrExclusive},
+		{"-D -c", nil},
+		{"-D -b", nil},
+		{"-D -c -b", ErrExclusive},
+		{"-S -i", ErrRequired},
+		{"-S -t -i", ErrReqVal},
+		{"-S -t target -m improved -u", nil},
+		{"-S -t target -m new -i", nil},
+		{"-S -t target -b", ErrRequired},
+		{"-S -t target -i -u", ErrExclusive},
+		{"-S -t target -i -b", ErrExclusive},
+		{"-S -t target -u -b", ErrExclusive},
+		{"-S -t target -i -v extra", ErrSwitch},
+		{"-S -i -v -t", ErrReqVal},
+		{"-S -? -v", ErrNotFound},
+		{"-S -v -?", ErrSwitch},
+		{"-S -? -!", ErrNotFound},
+		{"-S", ErrSub},
+		{"-?", ErrNotFound},
+		{"-S -t target -m new -v -v", ErrDuplicate},
+		{"-S", ErrSub},
+		{"-S -S", ErrNotFound},
+		{"-S -S -S", ErrNotFound},
+		{"-? -?", ErrNotFound},
+		{"-S -!", ErrNotFound},
+		{"-S -t -v", ErrReqVal},
+		{"-S -m mode -v", ErrRequired},
+		{"-S -t -m mode -v", ErrReqVal},
+		{"-S -t target -v", ErrRequired},
+		{"-S -t target -m -v", ErrReqVal},
+		{"-S -t target -m mode -v", nil},
+		{"-S --target target -m mode -v", nil},
+		{"-S -t target --mode mode -v", nil},
+		{"-S --target target --mode mode -v", nil},
+		{"-S --target target --mode mode -v extra", ErrSwitch},
+		{"-S --target target --mode mode -v -v", ErrDuplicate},
+		{"-S --target target --mode mode -v --target target", ErrDuplicate},
+		{"-S --target target --mode mode -v --mode mode", ErrDuplicate},
+		{"-Svi --mode mode --target target", nil},
+		{"-Plc", nil},
+		{"-Dcb", ErrExclusive},
+		{"-Svt target -m mode", nil},
+		{"-Svt target -m", ErrReqVal},
+		{"-Svm mode --target", ErrReqVal},
+		{"-Svm --?", ErrRequired},
+		{"-Sv --mode any --target best", nil},
+		{"-Sv --mode --? --target --!", nil},
+		{"-Sib", ErrExclusive},
+		{"-S -i -b", ErrExclusive},
+		{"-vSi", ErrNotSub},
+		{"-v -Sit target -m mode", nil},
+		{"-v -Si -t target -m mode", nil},
+		{"-PDS", ErrNotFound},
+		{"-PSD", ErrNotFound},
+		{"-SPD", ErrNotFound},
+		{"-SDP", ErrNotFound},
+		{"-DSP", ErrNotFound},
+		{"-DPS", ErrNotFound},
 	}
 
 	for i := 0; i < len(TestItems); i++ {

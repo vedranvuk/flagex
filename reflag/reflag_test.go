@@ -95,15 +95,15 @@ func TestStruct2(t *testing.T) {
 	}
 
 	tests := []Test{
-		Test{"", flagex.ErrNoArgs},
-		Test{"--verbose", nil},
-		Test{"-v", nil},
-		Test{"--version", nil},
-		Test{"--version --verbose", nil},
-		Test{"-v --version", nil},
-		Test{"-v ", nil},
-		Test{"-v -c -i 42", nil},
-		Test{"-vci 42", flagex.ErrNotSub},
+		{"", flagex.ErrNoArgs},
+		{"--verbose", nil},
+		{"-v", nil},
+		{"--version", nil},
+		{"--version --verbose", nil},
+		{"-v --version", nil},
+		{"-v ", nil},
+		{"-v -c -i 42", nil},
+		{"-vci 42", flagex.ErrNotSub},
 	}
 
 	var data *Root
