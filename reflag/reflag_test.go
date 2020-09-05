@@ -15,8 +15,6 @@ import (
 	"github.com/vedranvuk/flagex"
 )
 
-var Verbose bool = false
-
 func TestStruct(t *testing.T) {
 
 	type (
@@ -51,14 +49,14 @@ func TestStruct(t *testing.T) {
 	args := "--BAAAAR NameA --email me@net.com --age 64 --length 42 --sub --FOOOO NameB --admin --detail --user mirko --time 2020-01-02T15:04:05Z --deep --surname wut"
 
 	main := &Main{Sub: &Sub{Detail: &Detail{}}}
-	if Verbose {
+	if verboseoutput {
 		fmt.Printf("Before: %+v\n", main)
 	}
 	flags, err := Struct(main, strings.Split(args, " "))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if Verbose {
+	if verboseoutput {
 		fmt.Printf("After:  %+v\n", main)
 		fmt.Println("Parsed:", flags.ParseMap())
 		fmt.Println("Print:")
@@ -110,7 +108,7 @@ func TestStruct2(t *testing.T) {
 	var flags *flagex.Flags
 	var err error
 	for _, test := range tests {
-		if Verbose {
+		if verboseoutput {
 			fmt.Printf("Parsing: '%s'\n", test.Args)
 		}
 		data = newData()
@@ -118,7 +116,7 @@ func TestStruct2(t *testing.T) {
 		if !errors.Is(err, test.Expected) {
 			t.Fatalf("fail('%s'): want '%s', got '%v'\n", test.Args, test.Expected, err)
 		}
-		if Verbose {
+		if verboseoutput {
 			if flags != nil {
 				fmt.Println("Parsed: ", flags.ParseMap())
 				fmt.Println(flags.String())
@@ -131,10 +129,12 @@ func TestStruct2(t *testing.T) {
 
 }
 
+var verboseoutput bool = false
+
 func init() {
 	for _, v := range os.Args {
 		if strings.HasPrefix(v, "-test.v") {
-			Verbose = true
+			verboseoutput = true
 			return
 		}
 	}

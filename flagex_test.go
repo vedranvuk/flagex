@@ -13,8 +13,6 @@ import (
 	"testing"
 )
 
-var Verbose = false
-
 func TestFlags(t *testing.T) {
 
 	var (
@@ -29,19 +27,19 @@ func TestFlags(t *testing.T) {
 	)
 
 	f := New()
-	if err := f.Def("username", "u", "specify username", "username", "guest", KindOptional); err != nil {
+	if err := f.Define("username", "u", "specify username", "username", "guest", KindOptional); err != nil {
 		t.Fatalf("Def '%s' failed ", "username")
 	}
-	if err := f.Def("ip", "", "specify ip address", "ip", "127.0.0.1", KindRequired); err != nil {
+	if err := f.Define("ip", "", "specify ip address", "ip", "127.0.0.1", KindRequired); err != nil {
 		t.Fatalf("Def '%s' failed ", "ip")
 	}
-	if err := f.Def("config", "c", "specify config file", "filename", "", KindRequired); err != nil {
+	if err := f.Define("config", "c", "specify config file", "filename", "", KindRequired); err != nil {
 		t.Fatalf("Def '%s' failed ", "config")
 	}
-	if err := f.Def("verbose", "v", "v for verbose", "", "", KindSwitch); err != nil {
+	if err := f.Define("verbose", "v", "v for verbose", "", "", KindSwitch); err != nil {
 		t.Fatalf("Def '%s' failed ", "verbose")
 	}
-	if err := f.Def("mode", "M", "use mode", "mode ", "best", KindOptional); err != nil {
+	if err := f.Define("mode", "M", "use mode", "mode ", "best", KindOptional); err != nil {
 		t.Fatalf("Def '%s' failed ", "version")
 	}
 
@@ -49,7 +47,7 @@ func TestFlags(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	flag, ok := f.Key("username")
+	flag, ok := f.GetKey("username")
 	if !ok {
 		t.Fatal()
 	}
@@ -60,11 +58,11 @@ func TestFlags(t *testing.T) {
 		t.Fatal()
 	}
 
-	if _, ok = f.Short("u"); !ok {
+	if _, ok = f.GetShort("u"); !ok {
 		t.Fatal()
 	}
 
-	flag, ok = f.Key("ip")
+	flag, ok = f.GetKey("ip")
 	if !ok {
 		t.Fatal()
 	}
@@ -75,7 +73,7 @@ func TestFlags(t *testing.T) {
 		t.Fatal()
 	}
 
-	flag, ok = f.Key("config")
+	flag, ok = f.GetKey("config")
 	if !ok {
 		t.Fatal()
 	}
@@ -86,11 +84,11 @@ func TestFlags(t *testing.T) {
 		t.Fatal()
 	}
 
-	if _, ok = f.Short("c"); !ok {
+	if _, ok = f.GetShort("c"); !ok {
 		t.Fatal()
 	}
 
-	flag, ok = f.Key("verbose")
+	flag, ok = f.GetKey("verbose")
 	if !ok {
 		t.Fatal()
 	}
@@ -101,11 +99,11 @@ func TestFlags(t *testing.T) {
 		t.Fatal(v)
 	}
 
-	if _, ok = f.Short("v"); !ok {
+	if _, ok = f.GetShort("v"); !ok {
 		t.Fatal()
 	}
 
-	flag, ok = f.Key("mode")
+	flag, ok = f.GetKey("mode")
 	if !ok {
 		t.Fatal()
 	}
@@ -116,7 +114,7 @@ func TestFlags(t *testing.T) {
 		t.Fatal(v)
 	}
 
-	if _, ok = f.Short("M"); !ok {
+	if _, ok = f.GetShort("M"); !ok {
 		t.Fatal("h")
 	}
 }
@@ -261,21 +259,21 @@ func TestMux(t *testing.T) {
 
 	pkg := New()
 	for _, fi := range PackageItems {
-		pkg.Def(fi.Key, fi.ShortKey, fi.Help, fi.ParamHelp, fi.Default, fi.Kind)
+		pkg.Define(fi.Key, fi.ShortKey, fi.Help, fi.ParamHelp, fi.Default, fi.Kind)
 	}
-	pkg.Exclusive(PackageExcl...)
+	pkg.SetExclusive(PackageExcl...)
 
 	dbs := New()
 	for _, fi := range DatabaseItems {
-		dbs.Def(fi.Key, fi.ShortKey, fi.Help, fi.ParamHelp, fi.Default, fi.Kind)
+		dbs.Define(fi.Key, fi.ShortKey, fi.Help, fi.ParamHelp, fi.Default, fi.Kind)
 	}
-	dbs.Exclusive(DatabaseExcl...)
+	dbs.SetExclusive(DatabaseExcl...)
 
 	snc := New()
 	for _, fi := range SyncItems {
-		snc.Def(fi.Key, fi.ShortKey, fi.Help, fi.ParamHelp, fi.Default, fi.Kind)
+		snc.Define(fi.Key, fi.ShortKey, fi.Help, fi.ParamHelp, fi.Default, fi.Kind)
 	}
-	snc.Exclusive(SyncExcl...)
+	snc.SetExclusive(SyncExcl...)
 
 	var RootItems = []FlagItem{
 		{
@@ -317,10 +315,10 @@ func TestMux(t *testing.T) {
 	}
 
 	flag := New()
-	flag.Sub(RootItems[0].Key, RootItems[0].ShortKey, RootItems[0].Help, RootItems[0].Sub)
-	flag.Sub(RootItems[1].Key, RootItems[1].ShortKey, RootItems[1].Help, RootItems[1].Sub)
-	flag.Sub(RootItems[2].Key, RootItems[2].ShortKey, RootItems[2].Help, RootItems[2].Sub)
-	flag.Switch(RootItems[3].Key, RootItems[3].ShortKey, RootItems[3].Help)
+	flag.DefineSub(RootItems[0].Key, RootItems[0].ShortKey, RootItems[0].Help, RootItems[0].Sub)
+	flag.DefineSub(RootItems[1].Key, RootItems[1].ShortKey, RootItems[1].Help, RootItems[1].Sub)
+	flag.DefineSub(RootItems[2].Key, RootItems[2].ShortKey, RootItems[2].Help, RootItems[2].Sub)
+	flag.DefineSwitch(RootItems[3].Key, RootItems[3].ShortKey, RootItems[3].Help)
 
 	type TestItem struct {
 		Args        string
@@ -398,28 +396,28 @@ func TestMux(t *testing.T) {
 
 	for i := 0; i < len(TestItems); i++ {
 		err := flag.Parse(strings.Split(TestItems[i].Args, " "))
-		if Verbose {
+		if verboseoutput {
 			fmt.Printf("Testing: '%s'\n", TestItems[i].Args)
 		}
 		if !errors.Is(err, TestItems[i].ExpectedErr) {
 			log.Fatalf("'%s': expected '%v', got '%v'", TestItems[i].Args, TestItems[i].ExpectedErr, err)
 		}
-		if Verbose {
+		if verboseoutput {
 			fmt.Printf("Result:  '%v'\n", err)
 			fmt.Printf("Parsed:  '%#v'\n", flag.ParseMap())
 			fmt.Println()
 		}
 	}
-	if Verbose {
+	if verboseoutput {
 		fmt.Println(flag.String())
 	}
 }
 
 func TestParsed(t *testing.T) {
 	f := New()
-	f.Switch("a", "a", "a")
-	f.Switch("b", "b", "b")
-	f.Switch("c", "c", "c")
+	f.DefineSwitch("a", "a", "a")
+	f.DefineSwitch("b", "b", "b")
+	f.DefineSwitch("c", "c", "c")
 
 	f.Parse([]string{"-a", "-b", "-c"})
 	if !f.Parsed() {
@@ -455,20 +453,22 @@ func TestParsed(t *testing.T) {
 
 func TestValue(t *testing.T) {
 	f := New()
-	f.Opt("test", "t", "a test switch", "string", "defval")
+	f.DefineOptional("test", "t", "a test switch", "string", "defval")
 	f.Parse([]string{"-t", "notdefval"})
-	if f.Value("test") != "notdefval" {
+	if f.GetValue("test") != "notdefval" {
 		t.Fatal("Value() failed")
 	}
-	if f.Value("doesnotexist") != "" {
+	if f.GetValue("doesnotexist") != "" {
 		t.Fatal("Value() failed")
 	}
 }
 
+var verboseoutput = false
+
 func init() {
 	for _, v := range os.Args {
 		if strings.HasPrefix(v, "-test.v") {
-			Verbose = true
+			verboseoutput = true
 			return
 		}
 	}

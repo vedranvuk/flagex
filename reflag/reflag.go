@@ -44,9 +44,9 @@ const (
 	KeyParamHelp = "paramhelp"
 )
 
-// namefromjsontag retrieves the name from a json tag.
+// nameFromJSONTag retrieves the name from a json tag.
 // If no name found, result is an empty string.
-func namefromjsontag(tag string) string {
+func nameFromJSONTag(tag string) string {
 	a := strings.Split(tag, ",")
 	if len(a) > 0 {
 		return a[0]
@@ -54,9 +54,9 @@ func namefromjsontag(tag string) string {
 	return ""
 }
 
-// reflagtagtomap parses out comma-sepparated key/value pairs from a reflag tag.
+// reflagTagToMap parses out comma-sepparated key/value pairs from a reflag tag.
 // If a key has no value it is added as a key with an empty value.
-func reflagtagtomap(tag string) (m map[string]string) {
+func reflagTagToMap(tag string) (m map[string]string) {
 	m = make(map[string]string)
 	for _, pair := range strings.Split(tag, ",") {
 		switch a := strings.Split(pair, "="); len(a) {
@@ -76,7 +76,7 @@ func reflagtagtomap(tag string) (m map[string]string) {
 func flagParamsFromField(f reflect.StructField) (key, shortkey, help, paramhelp string) {
 
 	if rftag, ok := f.Tag.Lookup(KeyReflag); ok {
-		m := reflagtagtomap(rftag)
+		m := reflagTagToMap(rftag)
 		key = m[KeyKey]
 		shortkey = m[KeyShort]
 		help = m[KeyHelp]
@@ -84,7 +84,7 @@ func flagParamsFromField(f reflect.StructField) (key, shortkey, help, paramhelp 
 	}
 	if key == "" {
 		if jstag, ok := f.Tag.Lookup(KeyJSON); ok {
-			key = namefromjsontag(jstag)
+			key = nameFromJSONTag(jstag)
 		}
 	}
 	if key == "" {
@@ -109,14 +109,14 @@ func flagsFromStruct(root *flagex.Flags, v reflect.Value) (*flagex.Flags, error)
 		}
 
 		key, shortkey, help, paramhelp := flagParamsFromField(v.Type().Field(i))
-		if _, ok := root.Short(shortkey); ok {
+		if _, ok := root.GetShort(shortkey); ok {
 			shortkey = ""
 		}
 		fldval := reflect.Indirect(v.Field(i))
 
 		_, ok := (fldval.Interface()).(encoding.TextMarshaler)
 		if ok {
-			if err := root.Def(key, shortkey, help, paramhelp, "", flagex.KindOptional); err != nil {
+			if err := root.Define(key, shortkey, help, paramhelp, "", flagex.KindOptional); err != nil {
 				return nil, err
 			}
 			continue
@@ -128,15 +128,15 @@ func flagsFromStruct(root *flagex.Flags, v reflect.Value) (*flagex.Flags, error)
 			if err != nil {
 				return nil, err
 			}
-			if err := root.Sub(key, shortkey, help, new); err != nil {
+			if err := root.DefineSub(key, shortkey, help, new); err != nil {
 				return nil, err
 			}
 		case reflect.Bool:
-			if err := root.Switch(key, shortkey, help); err != nil {
+			if err := root.DefineSwitch(key, shortkey, help); err != nil {
 				return nil, err
 			}
 		default:
-			if err := root.Def(key, shortkey, help, paramhelp, "", flagex.KindOptional); err != nil {
+			if err := root.Define(key, shortkey, help, paramhelp, "", flagex.KindOptional); err != nil {
 				return nil, err
 			}
 		}
@@ -155,7 +155,7 @@ func structApplyFlags(flags *flagex.Flags, v reflect.Value) (*flagex.Flags, erro
 		}
 
 		key, _, _, _ := flagParamsFromField(v.Type().Field(i))
-		flag, ok := flags.Key(key)
+		flag, ok := flags.GetKey(key)
 		if !ok {
 			return nil, ErrNotFound.WrapArgs(key)
 		}

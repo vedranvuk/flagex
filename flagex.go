@@ -1,4 +1,4 @@
-// Copyright 2019 Vedran Vuk. All rights reserved.
+// Copyright 2020 Vedran Vuk. All rights reserved.
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"text/tabwriter"
 
@@ -16,30 +17,36 @@ import (
 )
 
 var (
-	// ErrFlag is the base flagex error.
-	ErrFlag = errorex.New("flagex")
+	// ErrFlagex is the base flagex error.
+	ErrFlagex = errorex.New("flagex")
 	// ErrNoArgs is returned when Parse is called with empty arguments.
-	ErrNoArgs = ErrFlag.Wrap("no arguments")
+	ErrNoArgs = ErrFlagex.Wrap("no arguments")
 	// ErrInvalid is returned when an invalid flag key is specified.
-	ErrInvalid = ErrFlag.WrapFormat("invalid key")
+	ErrInvalid = ErrFlagex.WrapFormat("invalid key")
 	// ErrNotFound is returned when a non existent key is requested.
-	ErrNotFound = ErrFlag.WrapFormat("key '%s' not found")
-	// ErrDuplicate is returned when a flag with a duplicate key is being registered.
-	ErrDuplicate = ErrFlag.WrapFormat("duplicate key '%s'")
-	// ErrDupShort is returned when a flag with a duplicate shortkey is being registered.
-	ErrDupShort = ErrFlag.WrapFormat("duplicate shortkey '%s'")
-	// ErrExclusive is returned when a more than flag from an exclusive set is parsed.
-	ErrExclusive = ErrFlag.WrapFormat("'%s' is exclusive to '%s'")
+	ErrNotFound = ErrFlagex.WrapFormat("key '%s' not found")
+	// ErrDuplicate is returned when a flag with a duplicate key is being
+	// registered.
+	ErrDuplicate = ErrFlagex.WrapFormat("duplicate key '%s'")
+	// ErrDupShort is returned when a flag with a duplicate shortkey is being
+	// registered.
+	ErrDupShort = ErrFlagex.WrapFormat("duplicate shortkey '%s'")
+	// ErrExclusive is returned when a more than one flag from an exclusive set
+	// is parsed.
+	ErrExclusive = ErrFlagex.WrapFormat("'%s' is exclusive to '%s'")
 	// ErrRequired is returned when a required flag was not parsed.
-	ErrRequired = ErrFlag.WrapFormat("required key '%s' not specified")
-	// ErrReqVal is returned when no value was passed to a key that requires one.
-	ErrReqVal = ErrFlag.WrapFormat("arg '%s' requires a param.")
+	ErrRequired = ErrFlagex.WrapFormat("required key '%s' not specified")
+	// ErrReqVal is returned when no value was passed to a key that requires
+	// one.
+	ErrReqVal = ErrFlagex.WrapFormat("arg '%s' requires a param.")
 	// ErrSwitch is returned when a switch was passed a param.
-	ErrSwitch = ErrFlag.WrapFormat("switch '%s' takes no params")
-	// ErrSub is returned when a sub switch was parsed with no args following it.
-	ErrSub = ErrFlag.WrapFormat("sub '%s' invoken with no params")
-	// ErrNotSub is returned when a non-sub switch is combined with other commands.
-	ErrNotSub = ErrFlag.WrapFormat("cannot combine key '%s', not a sub.")
+	ErrSwitch = ErrFlagex.WrapFormat("switch '%s' takes no params")
+	// ErrSub is returned when a sub switch was parsed with no args following
+	// it.
+	ErrSub = ErrFlagex.WrapFormat("sub '%s' invoken with no params")
+	// ErrNotSub is returned when a non-sub switch is combined with other
+	// commands.
+	ErrNotSub = ErrFlagex.WrapFormat("cannot combine key '%s', not a sub.")
 )
 
 // FlagKind specifies Flag kind.
@@ -72,7 +79,7 @@ func (fk FlagKind) String() string {
 	return ""
 }
 
-// Flag represents a defined flag.
+// Flag represents flag defined in Flags.
 type Flag struct {
 	key, shortkey, help, paramhelp, defval string
 
@@ -111,7 +118,7 @@ func (f *Flag) Excl() bool { return f.excl }
 // Parsed returns if this Flag was parsed.
 func (f *Flag) Parsed() bool { return f.parsed }
 
-// ParsedVal returns if FLag value was parsed.
+// ParsedVal returns if Flag as well as a parameter to it value was parsed.
 func (f *Flag) ParsedVal() bool { return f.parsedval }
 
 // Value returns current Flag value.
@@ -141,7 +148,6 @@ func (f *Flag) SetDefault(defval string) {
 type Flags struct {
 	keys   map[string]*Flag
 	short  map[string]string
-	last   string
 	parsed bool
 }
 
@@ -153,8 +159,8 @@ func New() *Flags {
 	}
 }
 
-// def defines a flag then returns it or an error.
-func (f *Flags) def(key, shortkey, help, paramhelp, defval string, typ FlagKind) (*Flag, error) {
+// define defines a flag.
+func (f *Flags) define(key, shortkey, help, paramhelp, defval string, typ FlagKind) (*Flag, error) {
 	if key == "" {
 		return nil, ErrInvalid
 	}
@@ -172,38 +178,38 @@ func (f *Flags) def(key, shortkey, help, paramhelp, defval string, typ FlagKind)
 	return flag, nil
 }
 
-// Switch defines an optional switch without a param.
-func (f *Flags) Switch(key, shortkey, help string) (err error) {
-	_, err = f.def(key, shortkey, help, "", "", KindSwitch)
-	return
-}
-
-// Opt defines an optional flag with a required param.
-func (f *Flags) Opt(key, shortkey, help, paramhelp, defval string) (err error) {
-	_, err = f.def(key, shortkey, help, paramhelp, defval, KindOptional)
-	return
-}
-
-// Req defines a required flag with a required param.
-func (f *Flags) Req(key, shortkey, help, paramhelp, defval string) (err error) {
-	_, err = f.def(key, shortkey, help, paramhelp, defval, KindRequired)
-	return
-}
-
-// Def defines a flag under specified key and optional
+// Define defines a flag under specified key and optional
 // longkey with specified help and default value defval.
 // key and shortkey must be unique in Flags, shortkey is optional.
 // If a non-nil error is returned flag was not defined.
-func (f *Flags) Def(key, shortkey, help, paramhelp, defval string, typ FlagKind) (err error) {
-	_, err = f.def(key, shortkey, help, paramhelp, defval, typ)
+func (f *Flags) Define(key, shortkey, help, paramhelp, defval string, typ FlagKind) (err error) {
+	_, err = f.define(key, shortkey, help, paramhelp, defval, typ)
 	return
 }
 
-// Sub defines child Flags under specified key and optional shortkey which
+// DefineSwitch defines an optional switch without a param.
+func (f *Flags) DefineSwitch(key, shortkey, help string) (err error) {
+	_, err = f.define(key, shortkey, help, "", "", KindSwitch)
+	return
+}
+
+// DefineOptional defines an optional flag with a required param.
+func (f *Flags) DefineOptional(key, shortkey, help, paramhelp, defval string) (err error) {
+	_, err = f.define(key, shortkey, help, paramhelp, defval, KindOptional)
+	return
+}
+
+// DefineRequired defines a required flag with a required param.
+func (f *Flags) DefineRequired(key, shortkey, help, paramhelp, defval string) (err error) {
+	_, err = f.define(key, shortkey, help, paramhelp, defval, KindRequired)
+	return
+}
+
+// DefineSub defines child Flags under specified key and optional shortkey which
 // must be unique in these Flags. When invoken rest of params are passed to it.
 // help defines the flag help. If a non-nil error is returned flag was not defined.
-func (f *Flags) Sub(key, shortkey, help string, sub *Flags) error {
-	flag, err := f.def(key, shortkey, help, "", "", KindSub)
+func (f *Flags) DefineSub(key, shortkey, help string, sub *Flags) error {
+	flag, err := f.define(key, shortkey, help, "", "", KindSub)
 	if err != nil {
 		return err
 	}
@@ -211,16 +217,16 @@ func (f *Flags) Sub(key, shortkey, help string, sub *Flags) error {
 	return nil
 }
 
-// Exclusive sets specified keys as mutually exclusive in Flags.
+// SetExclusive sets specified keys as mutually exclusive in Flags.
 // If more than one key from exclusive group are parsed, parse will error.
 // Keys must already be defined.
 // Subsequent calls redefine exclusivity.
-func (f *Flags) Exclusive(keys ...string) error {
+func (f *Flags) SetExclusive(keys ...string) error {
 	for _, flag := range f.keys {
 		flag.excl = false
 	}
 	for _, key := range keys {
-		flag, ok := f.Key(key)
+		flag, ok := f.GetKey(key)
 		if !ok {
 			return ErrNotFound.WrapArgs(key)
 		}
@@ -229,22 +235,22 @@ func (f *Flags) Exclusive(keys ...string) error {
 	return nil
 }
 
-// Key returns Flag if under specified key and a truth if it exists.
-func (f *Flags) Key(key string) (flag *Flag, truth bool) {
+// GetKey returns Flag if under specified key and a truth if it exists.
+func (f *Flags) GetKey(key string) (flag *Flag, truth bool) {
 	flag, truth = f.keys[key]
 	return
 }
 
-// Short returns Flag under specified shortkey and a truth if it exists.
-func (f *Flags) Short(shortkey string) (flag *Flag, truth bool) {
-	return f.Key(f.short[shortkey])
+// GetShort returns Flag under specified shortkey and a truth if it exists.
+func (f *Flags) GetShort(shortkey string) (flag *Flag, truth bool) {
+	return f.GetKey(f.short[shortkey])
 }
 
-// Value will return current value of a key, if found.
+// GetValue will return current value of a key, if found.
 // Returns an empty string otherwise.
 // Check before if key was parsed with Parsed().
-func (f *Flags) Value(key string) string {
-	if flag, exists := f.Key(key); exists {
+func (f *Flags) GetValue(key string) string {
+	if flag, exists := f.GetKey(key); exists {
 		return flag.Value()
 	}
 	return ""
@@ -260,7 +266,6 @@ func (f *Flags) reset() {
 			flag.sub.reset()
 		}
 	}
-	f.last = ""
 	f.parsed = false
 }
 
@@ -275,7 +280,7 @@ func (f *Flags) matchcombined(arg string) bool {
 	var flag *Flag
 	var ok bool
 	for i := 0; i < len(arg); i++ {
-		flag, ok = f.Short(string(arg[i]))
+		flag, ok = f.GetShort(string(arg[i]))
 		if ok {
 			if flag.sub != nil {
 				if i == len(arg)-1 {
@@ -298,16 +303,16 @@ func (f *Flags) findflag(arg string) (*Flag, bool) {
 	if strings.HasPrefix(arg, "-") {
 		key := strings.TrimPrefix(arg, "-")
 		if f.matchcombined(key) {
-			flag, ok = f.Short(string(key[0]))
+			flag, ok = f.GetShort(string(key[0]))
 		} else {
-			flag, ok = f.Short(key)
+			flag, ok = f.GetShort(key)
 		}
 		if ok {
 			return flag, ok
 		}
 
 		if strings.HasPrefix(key, "-") {
-			flag, ok = f.Key(strings.TrimPrefix(key, "-"))
+			flag, ok = f.GetKey(strings.TrimPrefix(key, "-"))
 		}
 	}
 	if !ok {
@@ -352,7 +357,6 @@ func splitcombined(arg string) []string {
 
 // Parse parses specified args.
 func (f *Flags) Parse(args []string) error {
-	f.last = strings.Join(args, " ")
 	f.reset()
 	var flag *Flag
 	var ok, comb bool
@@ -476,8 +480,14 @@ func (f *Flags) Parse(args []string) error {
 
 // printindent prints flags to w indented with indent.
 func (f *Flags) printindent(w io.Writer, indent string) {
-	// fmt.Fprintf(w, "%s[Short]\t[Key]\t[Help]\t\n", indent)
+
+	flags := make([]*Flag, 0, len(f.keys))
 	for _, flag := range f.keys {
+		flags = append(flags, flag)
+	}
+	sort.Slice(flags, func(i, j int) bool { return flags[i].key < flags[j].key })
+
+	for _, flag := range flags {
 		val := flag.Key()
 		if flag.paramhelp != "" {
 			val = fmt.Sprintf("%s <%s>", val, flag.paramhelp)
@@ -534,7 +544,7 @@ func (f *Flags) ParseMap() map[interface{}]interface{} {
 func (f *Flags) Parsed(keys ...string) bool {
 	if len(keys) > 0 {
 		for _, key := range keys {
-			if flag, ok := f.Key(key); ok {
+			if flag, ok := f.GetKey(key); ok {
 				if !flag.Parsed() {
 					return false
 				}
