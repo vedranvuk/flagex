@@ -1,11 +1,14 @@
 # Description
 
+
 flagex is a command line parser with (optional) pacman-like style parsing.
 
 It works with string values as its intermediate type. Reflect-based helpers are in the `reflag` package, which works, but has errorproofing left to do.
 
 
 ## Status
+
+**Archived code. No changes planned**
 
 Functionality I had in mind is in. Additional helpers might be added. Not 100% on the API yet, but any further changes should be minor.
 
